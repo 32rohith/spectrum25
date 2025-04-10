@@ -319,13 +319,13 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                       Row(
                         children: [
                           Icon(
-                            Icons.check_circle,
-                            color: AppTheme.accentColor,
+                            Icons.groups,
+                            color: AppTheme.primaryColor,
                             size: 20,
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Teams Checked In',
+                            'Total Teams',
                             style: TextStyle(
                               color: AppTheme.textSecondaryColor,
                               fontSize: 14,
@@ -335,8 +335,7 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                          // Count of verified teams
-                          '${_teams.where((team) => team['isVerified'] == true).length}',
+                        '${_teams.length}',
                         style: TextStyle(
                           color: AppTheme.textPrimaryColor,
                           fontSize: 22,
@@ -356,13 +355,13 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                       Row(
                         children: [
                           Icon(
-                            Icons.groups,
-                            color: AppTheme.primaryColor,
+                            Icons.check_circle_outline,
+                            color: AppTheme.accentColor,
                             size: 20,
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Total Teams',
+                            'Teams Checked In',
                             style: TextStyle(
                               color: AppTheme.textSecondaryColor,
                               fontSize: 14,
@@ -372,7 +371,267 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                          '${_teams.length}',
+                        '${_teams.where((team) {
+                          // Check if team has completed signup
+                          bool hasCompletedSignup = team['leader'] != null && 
+                                                  team['leader'] is Map && 
+                                                  (team['leader'] as Map).isNotEmpty &&
+                                                  team['members'] != null;
+
+                          if (!hasCompletedSignup) return false;
+
+                          int verifiedCount = 0;
+                          int totalCount = 1; // Leader
+                          
+                          // Count leader
+                          if (team['leader']?['isVerified'] == true) {
+                            verifiedCount++;
+                          }
+                          
+                          // Count members
+                          if (team['members'] != null) {
+                            if (team['members'] is List) {
+                              final membersList = team['members'] as List;
+                              totalCount += membersList.length;
+                              verifiedCount += membersList.where((m) => m['isVerified'] == true).length;
+                            } else if (team['members'] is Map) {
+                              totalCount++;
+                              if (team['members']['isVerified'] == true) {
+                                verifiedCount++;
+                              }
+                            }
+                          }
+                          
+                          // All members checked in
+                          return verifiedCount == totalCount && totalCount > 0;
+                        }).length}',
+                        style: TextStyle(
+                          color: AppTheme.textPrimaryColor,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: GlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.person,
+                            color: AppTheme.primaryColor,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Total Members',
+                            style: TextStyle(
+                              color: AppTheme.textSecondaryColor,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${_teams.fold<int>(0, (sum, team) => sum + ((team['members']?.length ?? 0) + 1) as int)}',
+                        style: TextStyle(
+                          color: AppTheme.textPrimaryColor,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: GlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.check_circle_outline,
+                            color: AppTheme.accentColor,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Members Checked In',
+                            style: TextStyle(
+                              color: AppTheme.textSecondaryColor,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${_teams.fold<int>(0, (sum, team) {
+                          int checkedIn = 0;
+                          // Count leader if verified
+                          if (team['leader']?['isVerified'] == true) {
+                            checkedIn++;
+                          }
+                          // Count verified members
+                          if (team['members'] != null) {
+                            if (team['members'] is List) {
+                              checkedIn += (team['members'] as List).where((m) => m['isVerified'] == true).length;
+                            } else if (team['members'] is Map && team['members']['isVerified'] == true) {
+                              checkedIn++;
+                            }
+                          }
+                          return sum + checkedIn;
+                        })}',
+                        style: TextStyle(
+                          color: AppTheme.textPrimaryColor,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: GlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.hourglass_empty,
+                            color: AppTheme.primaryColor,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Teams Started Check-in',
+                            style: TextStyle(
+                              color: AppTheme.textSecondaryColor,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${_teams.where((team) {
+                          // Check if team has completed signup
+                          bool hasCompletedSignup = team['leader'] != null && 
+                                                  team['leader'] is Map && 
+                                                  (team['leader'] as Map).isNotEmpty &&
+                                                  team['members'] != null;
+
+                          if (!hasCompletedSignup) return false;
+
+                          int verifiedCount = 0;
+                          int totalCount = 1; // Leader
+                          
+                          // Count leader
+                          if (team['leader']?['isVerified'] == true) {
+                            verifiedCount++;
+                          }
+                          
+                          // Count members
+                          if (team['members'] != null) {
+                            if (team['members'] is List) {
+                              final membersList = team['members'] as List;
+                              totalCount += membersList.length;
+                              verifiedCount += membersList.where((m) => m['isVerified'] == true).length;
+                            } else if (team['members'] is Map) {
+                              totalCount++;
+                              if (team['members']['isVerified'] == true) {
+                                verifiedCount++;
+                              }
+                            }
+                          }
+                          
+                          // Some but not all members checked in
+                          return verifiedCount > 0 && verifiedCount < totalCount;
+                        }).length}',
+                        style: TextStyle(
+                          color: AppTheme.textPrimaryColor,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: GlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.pending_actions,
+                            color: AppTheme.accentColor,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Teams Not Checked In',
+                            style: TextStyle(
+                              color: AppTheme.textSecondaryColor,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${_teams.where((team) {
+                          // Check if team has completed signup
+                          bool hasCompletedSignup = team['leader'] != null && 
+                                                  team['leader'] is Map && 
+                                                  (team['leader'] as Map).isNotEmpty &&
+                                                  team['members'] != null;
+
+                          if (!hasCompletedSignup) return true;
+
+                          int verifiedCount = 0;
+                          
+                          // Count leader
+                          if (team['leader']?['isVerified'] == true) {
+                            verifiedCount++;
+                          }
+                          
+                          // Count members
+                          if (team['members'] != null) {
+                            if (team['members'] is List) {
+                              verifiedCount += (team['members'] as List).where((m) => m['isVerified'] == true).length;
+                            } else if (team['members'] is Map && team['members']['isVerified'] == true) {
+                              verifiedCount++;
+                            }
+                          }
+                          
+                          // No members checked in
+                          return verifiedCount == 0;
+                        }).length}',
                         style: TextStyle(
                           color: AppTheme.textPrimaryColor,
                           fontSize: 22,

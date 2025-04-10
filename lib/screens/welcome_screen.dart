@@ -93,22 +93,18 @@ class WelcomeScreen extends StatelessWidget {
                     children: [
                       SizedBox(height: screenHeight * 0.08),
                       // App Logo and Title
-                      Text(
-                        'SPECTRUM',
-                        style: TextStyle(
-                          color: AppTheme.textPrimaryColor,
-                          fontSize: titleFontSize,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 2,
-                        ),
+                      Image.asset(
+                        'assets/logo.png',
+                        width: screenWidth * 0.5,
+                        fit: BoxFit.contain,
                       ),
                       Text(
-                        'HACKATHON',
+                        'Not your average hackathon',
                         style: TextStyle(
                           color: AppTheme.accentColor,
-                          fontSize: subtitleFontSize,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 4,
+                          fontSize: subtitleFontSize * 0.8,
+                          fontWeight: FontWeight.w400,
+                          fontStyle: FontStyle.italic,
                         ),
                       ),
                       SizedBox(height: screenHeight * 0.06),
