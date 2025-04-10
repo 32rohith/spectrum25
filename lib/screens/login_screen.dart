@@ -7,8 +7,13 @@ import 'qr_verification_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final bool isLeader;
+  final bool isMember;
 
-  const LoginScreen({super.key, required this.isLeader});
+  const LoginScreen({
+    super.key, 
+    this.isLeader = false,
+    this.isMember = true, // Default to member login if not specified
+  });
 
   @override
   _LoginScreenState createState() => _LoginScreenState();
@@ -46,6 +51,19 @@ class _LoginScreenState extends State<LoginScreen> {
       });
 
       if (result['success']) {
+        // Check if the user role matches the expected role based on login type
+        String userRole = result['userRole'] ?? '';
+        
+        if ((widget.isLeader && userRole != 'leader') || 
+            (widget.isMember && userRole != 'member')) {
+          setState(() {
+            _errorMessage = widget.isLeader 
+                ? 'These credentials are not for a team leader'
+                : 'These credentials are not for a team member';
+          });
+          return;
+        }
+        
         // Navigate to QR verification if not verified yet
         if (!result['team'].isVerified) {
           Navigator.pushReplacement(
@@ -70,11 +88,35 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  String _getTitle() {
+    if (widget.isLeader) {
+      return 'Team Leader Login';
+    } else {
+      return 'Team Member Login';
+    }
+  }
+
+  String _getWelcomeMessage() {
+    if (widget.isLeader) {
+      return 'Welcome back, Team Leader!';
+    } else {
+      return 'Welcome, Team Member!';
+    }
+  }
+
+  String _getSubtitle() {
+    if (widget.isLeader) {
+      return 'Login to manage your team and hackathon project';
+    } else {
+      return 'Login to access your team\'s hackathon project';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: CustomAppBar(
-        title: widget.isLeader ? 'Team Leader Login' : 'Team Member Login',
+        title: _getTitle(),
       ),
       body: Container(
         decoration: BoxDecoration(
@@ -98,15 +140,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   SizedBox(height: MediaQuery.of(context).size.height * 0.05),
                   Icon(
-                    widget.isLeader ? Icons.person : Icons.group,
+                    widget.isLeader ? Icons.person : Icons.person_outline,
                     color: AppTheme.primaryColor,
                     size: 80,
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    widget.isLeader
-                        ? 'Welcome back, Team Leader!'
-                        : 'Join Your Team',
+                    _getWelcomeMessage(),
                     style: TextStyle(
                       color: AppTheme.textPrimaryColor,
                       fontSize: 24,
@@ -116,9 +156,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    widget.isLeader
-                        ? 'Login to manage your team and hackathon project'
-                        : 'Enter the credentials provided by your team leader',
+                    _getSubtitle(),
                     style: TextStyle(
                       color: AppTheme.textSecondaryColor,
                       fontSize: 16,
@@ -130,7 +168,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   // Username field
                   CustomTextField(
                     label: 'Username',
-                    hint: 'Enter team username',
+                    hint: widget.isLeader 
+                        ? 'Enter leader username' 
+                        : 'Enter member username',
                     controller: _usernameController,
                     prefixIcon: Icon(
                       Icons.alternate_email,
@@ -138,7 +178,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter the team username';
+                        return 'Please enter your username';
                       }
                       return null;
                     },
@@ -148,7 +188,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   // Password field
                   CustomTextField(
                     label: 'Password',
-                    hint: 'Enter team password',
+                    hint: 'Enter password',
                     controller: _passwordController,
                     obscureText: true,
                     prefixIcon: Icon(
@@ -157,7 +197,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter the team password';
+                        return 'Please enter your password';
                       }
                       return null;
                     },
@@ -225,7 +265,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ] else ...[
                     Text(
-                      'Ask your team leader for login credentials',
+                      'Make sure to use the credentials provided to you',
                       style: TextStyle(
                         color: AppTheme.textSecondaryColor,
                         fontSize: 14,

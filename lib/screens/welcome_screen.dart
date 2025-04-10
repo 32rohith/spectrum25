@@ -111,66 +111,6 @@ class WelcomeScreen extends StatelessWidget {
                 
                 const SizedBox(height: 16),
                 
-                // Team Member Login
-                GlassCard(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const LoginScreen(isLeader: false),
-                      ),
-                    );
-                  },
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppTheme.accentColor.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          Icons.people,
-                          color: AppTheme.accentColor,
-                          size: 28,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Team Member Login',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimaryColor,
-                              ),
-                            ),
-                            Text(
-                              'Join your team with credentials',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: AppTheme.textSecondaryColor,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Icon(
-                        Icons.arrow_forward_ios,
-                        color: AppTheme.textSecondaryColor,
-                        size: 16,
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-                
                 // Team Leader Login
                 GlassCard(
                   onTap: () {
@@ -190,7 +130,7 @@ class WelcomeScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
-                          Icons.login,
+                          Icons.star,
                           color: AppTheme.primaryLightColor,
                           size: 28,
                         ),
@@ -210,6 +150,66 @@ class WelcomeScreen extends StatelessWidget {
                             ),
                             Text(
                               'Login as team leader',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(
+                        Icons.arrow_forward_ios,
+                        color: AppTheme.textSecondaryColor,
+                        size: 16,
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 16),
+                
+                // Team Member Login
+                GlassCard(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const LoginScreen(isMember: true),
+                      ),
+                    );
+                  },
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.accentColor.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.person_outline,
+                          color: AppTheme.accentColor,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Team Member Login',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textPrimaryColor,
+                              ),
+                            ),
+                            Text(
+                              'Login with your member credentials',
                               style: TextStyle(
                                 fontSize: 14,
                                 color: AppTheme.textSecondaryColor,

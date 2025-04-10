@@ -38,6 +38,7 @@ class Team {
   final TeamMember leader;
   final List<TeamMember> members;
   final bool isVerified;
+  final bool isRegistered;
   final String? projectSubmissionUrl;
 
   Team({
@@ -48,6 +49,7 @@ class Team {
     required this.leader,
     required this.members,
     this.isVerified = false,
+    this.isRegistered = true,
     this.projectSubmissionUrl,
   });
 
@@ -60,6 +62,7 @@ class Team {
       'leader': leader.toJson(),
       'members': members.map((member) => member.toJson()).toList(),
       'isVerified': isVerified,
+      'isRegistered': isRegistered,
       'projectSubmissionUrl': projectSubmissionUrl,
     };
   }
@@ -76,6 +79,7 @@ class Team {
           .toList() ??
           [],
       isVerified: json['isVerified'] ?? false,
+      isRegistered: json['isRegistered'] ?? true,
       projectSubmissionUrl: json['projectSubmissionUrl'],
     );
   }
