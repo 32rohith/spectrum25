@@ -33,22 +33,57 @@ class _OCLoginScreenState extends State<OCLoginScreen> {
   @override
   void initState() {
     super.initState();
+<<<<<<< Updated upstream
     _loadOCMembersData();
+=======
+    _loadOCCredentials();
+    
+    // Pre-fill the credentials for easier testing
+    _idController.text = "Spectrum25";
+    _passwordController.text = "ospc*csed321";
+>>>>>>> Stashed changes
   }
   
   Future<void> _loadOCMembersData() async {
     try {
       // Load the CSV file from assets
-      final String csvData = await rootBundle.loadString('assets/octest.csv');
+      print('Attempting to load OC credentials from assets/octest.csv');
+      final String csvData = await rootBundle.loadString('assets/octest.csv', cache: false);
+      
+      print('CSV data loaded: $csvData');
       
       // Parse the CSV data
       _ocMembersData = const CsvToListConverter().convert(csvData);
       
+<<<<<<< Updated upstream
       print('Loaded ${_ocMembersData.length} OC members records');
     } catch (e) {
       print('Error loading OC members data: $e');
       setState(() {
         _errorMessage = 'Error loading OC members data. Please try again.';
+=======
+      print('Parsed OC credentials: $_ocCredentials');
+      
+      // Manual check - if empty, use hardcoded credentials as fallback
+      if (_ocCredentials.isEmpty || _ocCredentials.length < 2) {
+        print('Warning: CSV empty or invalid format, using hardcoded credentials');
+        _ocCredentials = [
+          ['ID', 'Password'], // Header row
+          ['Spectrum25', 'ospc*csed321'] // Default credentials
+        ];
+      }
+    } catch (e) {
+      print('Error loading OC credentials: $e');
+      
+      // Fallback to hardcoded credentials
+      _ocCredentials = [
+        ['ID', 'Password'], // Header row
+        ['Spectrum25', 'ospc*csed321'] // Default credentials
+      ];
+      
+      setState(() {
+        _errorMessage = 'Error loading OC credentials. Using default.';
+>>>>>>> Stashed changes
       });
     }
   }
@@ -69,6 +104,7 @@ class _OCLoginScreenState extends State<OCLoginScreen> {
       return false;
     }
     
+<<<<<<< Updated upstream
     // Normalize inputs for comparison (trim whitespace, convert to lowercase)
     final normalizedName = name.trim().toLowerCase();
     final normalizedPhone = phone.trim();
@@ -80,6 +116,23 @@ class _OCLoginScreenState extends State<OCLoginScreen> {
         final memberPhone = member[1].toString().trim();
         
         if (memberName == normalizedName && memberPhone == normalizedPhone) {
+=======
+    // Debug print to check CSV data
+    print('Checking credentials. CSV Data: $_ocCredentials');
+    print('Entered ID: "$id", Password: "$password"');
+    
+    // Skip header row (index 0) and check against actual credentials
+    for (int i = 1; i < _ocCredentials.length; i++) {
+      final credential = _ocCredentials[i];
+      if (credential.length >= 2) {
+        final validId = credential[0].toString().trim();
+        final validPassword = credential[1].toString().trim();
+        
+        print('Comparing with: ID: "$validId", Password: "$validPassword"');
+        
+        // Direct exact comparison
+        if (id.trim() == validId && password.trim() == validPassword) {
+>>>>>>> Stashed changes
           return true;
         }
       }
@@ -138,10 +191,30 @@ class _OCLoginScreenState extends State<OCLoginScreen> {
       });
 
       Future.delayed(const Duration(milliseconds: 800), () {
+<<<<<<< Updated upstream
         final name = _nameController.text;
         final phone = _phoneController.text;
         
         final isVerified = _verifyOCMember(name, phone);
+=======
+        final id = _idController.text.trim();
+        final password = _passwordController.text.trim();
+        
+        // Try both ways - in case user entered credentials in the wrong order
+        bool isVerified = _verifyOCCredentials(id, password);
+        
+        // If normal order failed, try reversed (in case user swapped fields)
+        if (!isVerified && id.contains("*")) { // Likely the password in the ID field
+          print("First attempt failed. Trying reversed credentials...");
+          isVerified = _verifyOCCredentials(password, id);
+          
+          // If reversed worked, swap the input fields for clarity
+          if (isVerified) {
+            _idController.text = password;
+            _passwordController.text = id;
+          }
+        }
+>>>>>>> Stashed changes
         
         setState(() {
           _isLoading = false;
@@ -358,6 +431,42 @@ class _OCLoginScreenState extends State<OCLoginScreen> {
                       onPressed: _login,
                       isLoading: _isLoading,
                       icon: Icons.verified_user,
+                    ),
+                    
+                    const SizedBox(height: 12),
+                    
+                    // Debug button - direct login with hardcoded credentials
+                    TextButton(
+                      onPressed: () async {
+                        print("Debug login attempt with hardcoded credentials");
+                        
+                        // Force reload CSV to ensure fresh data
+                        await _loadOCCredentials();
+                        
+                        // Directly navigate to main screen
+                        Navigator.pushReplacement(
+                          context, 
+                          MaterialPageRoute(
+                            builder: (context) => const OCMainScreen(),
+                          ),
+                        );
+                        
+                        // Show success message
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Debug login successful'),
+                            backgroundColor: Colors.green,
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      child: Text(
+                        'DEBUG: Direct Login',
+                        style: TextStyle(
+                          color: AppTheme.accentColor,
+                          decoration: TextDecoration.underline,
+                        ),
+                      ),
                     ),
                     
                     if (_errorMessage != null) ...[
