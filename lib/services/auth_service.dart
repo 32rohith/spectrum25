@@ -557,4 +557,9 @@ class AuthService {
       return null;
     }
   }
+
+  // Get current user ID
+  String? getCurrentUserId() {
+    return _auth.currentUser?.uid;
+  }
 }
