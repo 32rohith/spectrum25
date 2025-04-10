@@ -22,23 +22,29 @@ class MainAppScreen extends StatefulWidget {
 }
 
 class _MainAppScreenState extends State<MainAppScreen> {
-  int _currentIndex = 0;
+  // Initial index set to 2 (Home tab in the middle)
+  int _currentIndex = 2;
   late final List<Widget> _tabs;
 
   @override
   void initState() {
     super.initState();
     _tabs = [
-      HomeTab(team: widget.team),
       LeaderboardTab(),
-      FoodTab(),
       TeamDetailsTab(team: widget.team),
+      HomeTab(team: widget.team),
+      FoodTab(),
       ProjectSubmissionTab(team: widget.team),
     ];
   }
 
   @override
   Widget build(BuildContext context) {
+    // Get screen size for responsive design
+    final Size screenSize = MediaQuery.of(context).size;
+    final double screenWidth = screenSize.width;
+    final double screenHeight = screenSize.height;
+    
     return Scaffold(
       body: Stack(
         children: [
@@ -49,11 +55,11 @@ class _MainAppScreenState extends State<MainAppScreen> {
           
           // Blue Blurred Circle - Top Left
           Positioned(
-            top: -100,
-            left: -100,
+            top: -screenHeight * 0.15,
+            left: -screenWidth * 0.25,
             child: Container(
-              width: 300,
-              height: 300,
+              width: screenWidth * 0.8,
+              height: screenWidth * 0.8,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: AppTheme.primaryColor.withOpacity(0.3),
@@ -72,11 +78,11 @@ class _MainAppScreenState extends State<MainAppScreen> {
           
           // Blue Blurred Circle - Bottom Right
           Positioned(
-            bottom: -100,
-            right: -100,
+            bottom: -screenHeight * 0.15,
+            right: -screenWidth * 0.25,
             child: Container(
-              width: 300,
-              height: 300,
+              width: screenWidth * 0.8,
+              height: screenWidth * 0.8,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: AppTheme.accentColor.withOpacity(0.3),
@@ -120,20 +126,20 @@ class _MainAppScreenState extends State<MainAppScreen> {
           unselectedItemColor: AppTheme.textSecondaryColor,
           items: const [
             BottomNavigationBarItem(
-              icon: Icon(Icons.home),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
               icon: Icon(Icons.leaderboard),
               label: 'Leaderboard',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.fastfood),
-              label: 'Food',
-            ),
-            BottomNavigationBarItem(
               icon: Icon(Icons.people),
               label: 'Team',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home),
+              label: 'Home',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.fastfood),
+              label: 'Food',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.upload_file),

@@ -5,6 +5,7 @@ import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../services/auth_service.dart';
 import 'qr_verification_screen.dart';
+import 'main_app_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -59,18 +60,6 @@ class _LoginScreenState extends State<LoginScreen> {
         String userRole = result['userRole'] ?? '';
         print('Processing successful login with role: $userRole');
         
-        // Success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Login successful! Welcome ${result['userName'] ?? 'back'}!',
-              style: const TextStyle(color: Colors.white),
-            ),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        
         // Navigate to appropriate screen based on verification status
         if (!result['team'].isVerified) {
           Navigator.pushReplacement(
@@ -80,22 +69,27 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           );
         } else {
-          // Navigate to main screen based on role
-          if (userRole == 'leader') {
-            // TODO: Navigate to leader dashboard
-            print('Navigating to leader dashboard');
-            // Temporary placeholder until navigation is implemented
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Leader dashboard would open here')),
-            );
-          } else {
-            // TODO: Navigate to member dashboard
-            print('Navigating to member dashboard');
-            // Temporary placeholder until navigation is implemented
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Member dashboard would open here')),
-            );
-          }
+          // Navigate to main screen based on role - both go to MainAppScreen
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => MainAppScreen(team: result['team']),
+            ),
+          );
+          
+          // Show welcome message based on role
+          String roleMessage = userRole == 'leader' 
+              ? 'Welcome Team Leader!' 
+              : 'Welcome Team Member!';
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(roleMessage),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
         }
       } else {
         setState(() {
