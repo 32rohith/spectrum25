@@ -7,6 +7,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
 import '../../services/meal_service.dart';
 import '../../models/meal_tracking.dart';
+import '../../models/team.dart';
 import 'dart:developer' as developer;
 
 class OCFoodTab extends StatefulWidget {
@@ -27,6 +28,7 @@ class _OCFoodTabState extends State<OCFoodTab> {
   List<MealConsumption> _recentConsumptions = [];
   MobileScannerController? _scannerController;
   Map<String, dynamic>? _lastScanResult;
+  bool _isSendingEmails = false;
   
   @override
   void initState() {
@@ -727,6 +729,261 @@ class _OCFoodTabState extends State<OCFoodTab> {
     );
   }
 
+  // Add a method to send QR codes to iOS users
+  Future<void> _sendQRCodeToIOSUsers() async {
+    setState(() {
+      _isSendingEmails = true;
+    });
+    
+    developer.log('Starting process to send QR codes to iOS users');
+    
+    try {
+      // Get all teams to extract iOS users
+      developer.log('Fetching teams from Firestore');
+      final teamsSnapshot = await _firestore.collection('teams').get();
+      developer.log('Retrieved ${teamsSnapshot.docs.length} teams from Firestore');
+      
+      // Create a list to track successful and failed emails
+      List<String> successfulEmails = [];
+      List<String> failedEmails = [];
+      int iOSUsersCount = 0;
+      
+      // Iterate through all teams
+      developer.log('Starting to process teams for iOS users');
+      for (var teamDoc in teamsSnapshot.docs) {
+        final teamData = teamDoc.data();
+        final team = Team.fromJson(teamData);
+        developer.log('Processing team: ${team.teamName} (ID: ${team.teamId})');
+        
+        // Process team leader if they use iOS
+        if (team.leader.device.toLowerCase() == 'ios') {
+          iOSUsersCount++;
+          developer.log('Team leader ${team.leader.name} uses iOS, processing');
+          
+          // Find or create member document
+          String memberId = '';
+          String qrData = '';
+          
+          // Look for existing member in members collection
+          final membersSnapshot = await _firestore
+            .collection('members')
+            .where('name', isEqualTo: team.leader.name)
+            .where('teamName', isEqualTo: team.teamName)
+            .limit(1)
+            .get();
+            
+          if (membersSnapshot.docs.isNotEmpty) {
+            // Use existing member
+            memberId = membersSnapshot.docs.first.id;
+            final memberData = membersSnapshot.docs.first.data();
+            
+            // Update member with email if not already set
+            if (memberData['email'] == null || memberData['email'].toString().isEmpty) {
+              await _firestore.collection('members').doc(memberId).update({
+                'email': team.leader.email,
+                'device': 'iOS'
+              });
+              developer.log('Updated member document with email: ${team.leader.email}');
+            }
+            
+            // Check if member needs QR code
+            if (memberData['qrSecret'] == null) {
+              // Generate and store QR
+              developer.log('Generating and storing QR secret for ${team.leader.name}');
+              qrData = await _mealService.generateAndStoreMemberQR(memberId, team.leader.name, team.teamName);
+            } else {
+              // Use existing QR
+              developer.log('Using existing QR secret for ${team.leader.name}');
+              qrData = await _mealService.generateQRWithStoredSecret(memberId, team.leader.name, team.teamName);
+            }
+          } else {
+            // Create new member document
+            developer.log('Creating new member document for ${team.leader.name}');
+            final newMemberRef = _firestore.collection('members').doc();
+            memberId = newMemberRef.id;
+            
+            // Create member data
+            await newMemberRef.set({
+              'name': team.leader.name,
+              'teamName': team.teamName,
+              'teamId': team.teamId,
+              'isBreakfastConsumed': false,
+              'isLunchConsumed': false,
+              'isDinnerConsumed': false,
+              'isTestMealConsumed': false,
+              'device': 'iOS',
+              'email': team.leader.email,
+              'createdAt': FieldValue.serverTimestamp(),
+            });
+            
+            developer.log('Created new member document for: ${team.leader.name}');
+            
+            // Generate and store QR code with secret
+            qrData = await _mealService.generateAndStoreMemberQR(memberId, team.leader.name, team.teamName);
+          }
+          
+          // Now send the stored QR code via email
+          developer.log('QR code generated for ${team.leader.name}, sending email to ${team.leader.email}');
+          
+          // Send email with QR code
+          final success = await _mealService.sendQRCodeEmail(
+            recipientEmail: team.leader.email,
+            memberName: team.leader.name,
+            teamName: team.teamName,
+            qrCodeData: qrData,
+          );
+          
+          if (success) {
+            // Mark that QR was sent by email
+            await _firestore.collection('members').doc(memberId).update({
+              'qrSentByEmail': true,
+              'qrEmailSentAt': FieldValue.serverTimestamp(),
+            });
+            
+            successfulEmails.add(team.leader.email);
+            developer.log('Successfully sent QR code email to team leader: ${team.leader.name} (${team.leader.email})');
+          } else {
+            failedEmails.add(team.leader.email);
+            developer.log('Failed to send QR code email to team leader: ${team.leader.name} (${team.leader.email})');
+          }
+        } else {
+          developer.log('Team leader ${team.leader.name} does not use iOS, skipping');
+        }
+        
+        // Process team members
+        developer.log('Processing ${team.members.length} members in team ${team.teamName}');
+        for (var member in team.members) {
+          if (member.device.toLowerCase() == 'ios') {
+            iOSUsersCount++;
+            developer.log('Team member ${member.name} uses iOS, processing');
+            
+            // Find or create member document
+            String memberId = '';
+            String qrData = '';
+            
+            // Look for existing member in members collection
+            final membersSnapshot = await _firestore
+              .collection('members')
+              .where('name', isEqualTo: member.name)
+              .where('teamName', isEqualTo: team.teamName)
+              .limit(1)
+              .get();
+              
+            if (membersSnapshot.docs.isNotEmpty) {
+              // Use existing member
+              memberId = membersSnapshot.docs.first.id;
+              final memberData = membersSnapshot.docs.first.data();
+              
+              // Update member with email if not already set
+              if (memberData['email'] == null || memberData['email'].toString().isEmpty) {
+                await _firestore.collection('members').doc(memberId).update({
+                  'email': member.email,
+                  'device': 'iOS'
+                });
+                developer.log('Updated member document with email: ${member.email}');
+              }
+              
+              // Check if member needs QR code
+              if (memberData['qrSecret'] == null) {
+                // Generate and store QR
+                developer.log('Generating and storing QR secret for ${member.name}');
+                qrData = await _mealService.generateAndStoreMemberQR(memberId, member.name, team.teamName);
+              } else {
+                // Use existing QR
+                developer.log('Using existing QR secret for ${member.name}');
+                qrData = await _mealService.generateQRWithStoredSecret(memberId, member.name, team.teamName);
+              }
+            } else {
+              // Create new member document
+              developer.log('Creating new member document for ${member.name}');
+              final newMemberRef = _firestore.collection('members').doc();
+              memberId = newMemberRef.id;
+              
+              // Create member data
+              await newMemberRef.set({
+                'name': member.name,
+                'teamName': team.teamName,
+                'teamId': team.teamId,
+                'isBreakfastConsumed': false,
+                'isLunchConsumed': false,
+                'isDinnerConsumed': false,
+                'isTestMealConsumed': false,
+                'device': 'iOS',
+                'email': member.email,
+                'createdAt': FieldValue.serverTimestamp(),
+              });
+              
+              developer.log('Created new member document for: ${member.name}');
+              
+              // Generate and store QR code with secret
+              qrData = await _mealService.generateAndStoreMemberQR(memberId, member.name, team.teamName);
+            }
+            
+            // Now send the stored QR code via email
+            developer.log('QR code generated for ${member.name}, sending email to ${member.email}');
+            
+            // Send email with QR code
+            final success = await _mealService.sendQRCodeEmail(
+              recipientEmail: member.email,
+              memberName: member.name,
+              teamName: team.teamName,
+              qrCodeData: qrData,
+            );
+            
+            if (success) {
+              // Mark that QR was sent by email
+              await _firestore.collection('members').doc(memberId).update({
+                'qrSentByEmail': true,
+                'qrEmailSentAt': FieldValue.serverTimestamp(),
+              });
+              
+              successfulEmails.add(member.email);
+              developer.log('Successfully sent QR code email to team member: ${member.name} (${member.email})');
+            } else {
+              failedEmails.add(member.email);
+              developer.log('Failed to send QR code email to team member: ${member.name} (${member.email})');
+            }
+          } else {
+            developer.log('Team member ${member.name} does not use iOS, skipping');
+          }
+        }
+      }
+      
+      developer.log('Completed sending QR codes to iOS users');
+      developer.log('Summary: Found $iOSUsersCount iOS users, sent ${successfulEmails.length} emails successfully, failed to send ${failedEmails.length} emails');
+      
+      setState(() {
+        _isSendingEmails = false;
+      });
+      
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'QR codes sent to ${successfulEmails.length}/$iOSUsersCount iOS users. ${failedEmails.length} failed.'
+          ),
+          backgroundColor: failedEmails.isEmpty ? Colors.green : Colors.orange,
+          duration: Duration(seconds: 5),
+        ),
+      );
+      
+    } catch (e) {
+      developer.log('Error sending emails to iOS users: $e', error: e, stackTrace: StackTrace.current);
+      setState(() {
+        _isSendingEmails = false;
+      });
+      
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error sending emails: $e'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1026,6 +1283,34 @@ class _OCFoodTabState extends State<OCFoodTab> {
                                   ],
                                 ),
             ),
+            
+            // Add iOS QR email button
+            if (_selectedMeal != null && !_isScanning)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: Icon(Icons.ios_share, color: Colors.white),
+                        label: Text(
+                          _isSendingEmails 
+                              ? 'Sending emails...' 
+                              : 'Send QR to iOS Users',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          padding: EdgeInsets.symmetric(vertical: 12.0),
+                        ),
+                        onPressed: _isSendingEmails 
+                            ? null 
+                            : _sendQRCodeToIOSUsers,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),

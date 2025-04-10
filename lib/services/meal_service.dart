@@ -21,6 +21,10 @@ class MealService {
         return;
       }
       
+      // Calculate times for short test meal
+      final now = DateTime.now();
+      final tenMinutesFromNow = now.add(Duration(minutes: 10));
+      
       // Define the hackathon meal schedule
       final meals = [
         Meal(
@@ -45,18 +49,18 @@ class MealService {
           isActive: false,
         ),
         Meal(
-          id: 'test_meal',
-          name: 'Test Meal',
-          startTime: DateTime.now(), // Start from now
-          endTime: DateTime.now().add(Duration(days: 1, hours: 6)), // Until tomorrow 6 hours from now
+          id: 'quick_test_meal',
+          name: 'Quick Test (Ends in 10min)',
+          startTime: now,
+          endTime: tenMinutesFromNow,
           isActive: true,
         ),
         Meal(
-          id: 'quick_test',
-          name: 'Quick Test Meal (11:45-11:55)',
-          startTime: _createTimeToday(11, 45), // 11:45 today
-          endTime: _createTimeToday(11, 55),   // 11:55 today
-          isActive: false, // Don't force active, let time determine
+          id: 'standard_test_meal',
+          name: 'Standard Test Meal',
+          startTime: tenMinutesFromNow.add(Duration(minutes: 2)), // Start 2 minutes after the first test meal ends
+          endTime: tenMinutesFromNow.add(Duration(minutes: 62)), // Lasts for 1 hour
+          isActive: false,
         ),
       ];
       
@@ -67,7 +71,7 @@ class MealService {
       }
       
       await batch.commit();
-      developer.log('Meals initialized successfully');
+      developer.log('Meals initialized successfully with 2 test meals: Quick 10-min test and 1-hour standard test');
     } catch (e) {
       developer.log('Error initializing meals: $e');
       throw Exception('Failed to initialize meals: $e');
@@ -80,29 +84,6 @@ class MealService {
     return DateTime(now.year, now.month, now.day, hour, minute);
   }
   
-  // Generate a unique QR code for a member and meal
-  String generateMealQRCode(String memberId, String mealId) {
-    final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-    final secret = 'SPECTRUM_MEALS_2025'; // Secret key for QR code generation
-    
-    // Create a unique string by combining member ID, meal ID, timestamp, and secret
-    final data = '$memberId:$mealId:$timestamp:$secret';
-    
-    // Generate a SHA-256 hash for security
-    final bytes = utf8.encode(data);
-    final hash = sha256.convert(bytes).toString();
-    
-    // Create the QR data
-    final qrData = {
-      'memberId': memberId,
-      'mealId': mealId,
-      'timestamp': timestamp,
-      'hash': hash,
-      'type': 'meal_qr',
-    };
-    
-    return json.encode(qrData);
-  }
   
   // Generate QR code using stored secret if available
   String generateQRCode(String memberName, String teamName, {String? qrSecret}) {
@@ -130,6 +111,41 @@ class MealService {
     };
     
     return json.encode(qrData);
+  }
+  
+  // Send QR code via email
+  Future<bool> sendQRCodeEmail({
+    required String recipientEmail,
+    required String memberName,
+    required String teamName,
+    required String qrCodeData,
+  }) async {
+    try {
+      developer.log('MealService: Starting QR code email process for $memberName to $recipientEmail');
+      
+      // Use email service to send the email
+      developer.log('MealService: Delegating to EmailService for sending email');
+      final result = await _emailService.sendQRCodeEmail(
+        recipientEmail: recipientEmail,
+        memberName: memberName,
+        teamName: teamName,
+        qrCodeData: qrCodeData,
+      );
+      
+      // Log the result
+      if (result) {
+        developer.log('MealService: Successfully sent QR code email to $recipientEmail for $memberName from $teamName');
+      } else {
+        developer.log('MealService: Failed to send QR code email to $recipientEmail for $memberName from $teamName');
+      }
+      
+      return result;
+    } catch (e) {
+      developer.log('MealService: Error in sendQRCodeEmail for $memberName ($recipientEmail): $e', 
+                   error: e, 
+                   stackTrace: StackTrace.current);
+      return false;
+    }
   }
   
   // Save member info to Firestore
@@ -650,44 +666,6 @@ class MealService {
     }
   }
 
-  // Send QR code to member's email (for iOS users)
-  Future<bool> sendQRCodeByEmail(
-    String memberId,
-    String memberName,
-    String teamName,
-    String email,
-    String qrData
-  ) async {
-    try {
-      developer.log('Sending QR code email to $email for member $memberName');
-      
-      // Send the email with QR code using the EmailService
-      final success = await _emailService.sendQRCodeEmail(
-        recipientEmail: email,
-        memberName: memberName,
-        teamName: teamName,
-        qrCodeData: qrData,
-      );
-      
-      if (success) {
-        // Update member document to mark that the QR was sent by email
-        await _firestore.collection('members').doc(memberId).update({
-          'qrSentByEmail': true,
-          'qrEmailSentAt': FieldValue.serverTimestamp(),
-        });
-        
-        developer.log('QR code sent successfully to $email');
-      } else {
-        developer.log('Failed to send QR code email to $email');
-      }
-      
-      return success;
-    } catch (e) {
-      developer.log('Error sending QR code by email: $e');
-      return false;
-    }
-  }
-
   // Send QR codes to all iOS members in a team using team collection emails
   Future<Map<String, dynamic>> sendQRCodeToAllTeamIOSMembers(String teamId) async {
     try {
@@ -806,12 +784,11 @@ class MealService {
           
           // Send email with QR code
           developer.log('Sending QR code email to: $email');
-          final success = await sendQRCodeByEmail(
-            memberId,
-            memberName,
-            teamName,
-            email,
-            qrData
+          final success = await sendQRCodeEmail(
+            recipientEmail: email,
+            memberName: memberName,
+            teamName: teamName,
+            qrCodeData: qrData
           );
           
           if (success) {
