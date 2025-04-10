@@ -20,6 +20,15 @@ class _OCLoginScreenState extends State<OCLoginScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   String? _errorMessage;
+  bool _showPassword = false;
+  
+  // OC member data & login security
+  List<List<dynamic>> _ocMembersData = [];
+  int _loginAttempts = 0;
+  int _maxLoginAttempts = 5;
+  bool _lockoutActive = false;
+  DateTime? _lockoutEndTime;
+  final _lockoutDuration = const Duration(minutes: 15);
 
   @override
   void dispose() {
