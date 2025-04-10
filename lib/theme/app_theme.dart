@@ -3,19 +3,19 @@ import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // Primary Colors
-  static const Color primaryColor = Color(0xFF9C27B0);
-  static const Color primaryLightColor = Color(0xFFD05CE3);
-  static const Color primaryDarkColor = Color(0xFF6A0080);
+  static const Color primaryColor = Color(0xFF6A0080);
+  static const Color primaryLightColor = Color(0xFF9C27B0);
+  static const Color primaryDarkColor = Color(0xFF4A005A);
   
   // Secondary Colors
   static const Color accentColor = Color(0xFF03DAC6);
   static const Color accentLightColor = Color(0xFF66FFF9);
   static const Color accentDarkColor = Color(0xFF00A896);
   
-  // Background Colors
-  static const Color backgroundColor = Color(0xFF121212);
-  static const Color surfaceColor = Color(0xFF1E1E1E);
-  static const Color cardColor = Color(0xFF2C2C2C);
+  // Background Colors - Using very dark purples instead of black/gray
+  static const Color backgroundColor = Color(0xFF3A004A);
+  static const Color surfaceColor = Color(0xFF4A005A);
+  static const Color cardColor = Color(0xFF5A106A);
 
   // Text Colors
   static const Color textPrimaryColor = Color(0xFFFFFFFF);
@@ -23,8 +23,8 @@ class AppTheme {
   static const Color textDisabledColor = Color(0x61FFFFFF); // White with 38% opacity
 
   // Glass effect colors
-  static const Color glassColor = Color(0x40FFFFFF);
-  static const Color glassBorderColor = Color(0x30FFFFFF);
+  static const Color glassColor = Color(0x4D6A0080);
+  static const Color glassBorderColor = Color(0x336A0080);
 
   // Error
   static const Color errorColor = Color(0xFFCF6679);
