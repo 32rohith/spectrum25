@@ -28,12 +28,15 @@ class _TeamMemberDetailsScreenState extends State<TeamMemberDetailsScreen> {
   final TextEditingController _leaderNameController = TextEditingController();
   final TextEditingController _leaderEmailController = TextEditingController();
   final TextEditingController _leaderPhoneController = TextEditingController();
-  final TextEditingController _leaderDeviceController = TextEditingController();
+  String _leaderDeviceValue = 'Android'; // Default device value for leader
   
   // List of members
   final List<MemberForm> _memberForms = [];
   final int _minMembers = 3; // For a total of 4 with the leader
   final int _maxMembers = 5; // For a total of 6 with the leader
+  
+  // Available device options
+  final List<String> _deviceOptions = ['Android', 'iOS'];
   
   @override
   void initState() {
@@ -43,6 +46,7 @@ class _TeamMemberDetailsScreenState extends State<TeamMemberDetailsScreen> {
       _memberForms.add(MemberForm(
         index: i,
         onRemove: _removeMemberForm,
+        deviceOptions: _deviceOptions,
       ));
     }
   }
@@ -52,7 +56,6 @@ class _TeamMemberDetailsScreenState extends State<TeamMemberDetailsScreen> {
     _leaderNameController.dispose();
     _leaderEmailController.dispose();
     _leaderPhoneController.dispose();
-    _leaderDeviceController.dispose();
     for (var form in _memberForms) {
       form.dispose();
     }
@@ -65,6 +68,7 @@ class _TeamMemberDetailsScreenState extends State<TeamMemberDetailsScreen> {
         _memberForms.add(MemberForm(
           index: _memberForms.length,
           onRemove: _removeMemberForm,
+          deviceOptions: _deviceOptions,
         ));
       });
     }
@@ -95,7 +99,7 @@ class _TeamMemberDetailsScreenState extends State<TeamMemberDetailsScreen> {
           name: _leaderNameController.text.trim(),
           email: _leaderEmailController.text.trim(),
           phone: _leaderPhoneController.text.trim(),
-          device: _leaderDeviceController.text.trim(),
+          device: _leaderDeviceValue,
         );
 
         // Create team members
@@ -295,16 +299,75 @@ class _TeamMemberDetailsScreenState extends State<TeamMemberDetailsScreen> {
                         const SizedBox(height: 16),
                         
                         // Leader Device
-                        CustomTextField(
-                          label: 'Device',
-                          hint: 'Enter your device (e.g., Laptop, Mobile)',
-                          controller: _leaderDeviceController,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your device';
-                            }
-                            return null;
-                          },
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: Text(
+                                'Device',
+                                style: TextStyle(
+                                  color: AppTheme.textSecondaryColor,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                color: AppTheme.cardColor.withOpacity(0.5),
+                                border: Border.all(
+                                  color: AppTheme.glassBorderColor,
+                                  width: 1,
+                                ),
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  dropdownColor: AppTheme.cardColor,
+                                  isExpanded: true,
+                                  value: _leaderDeviceValue,
+                                  icon: Icon(
+                                    Icons.arrow_drop_down,
+                                    color: AppTheme.textSecondaryColor,
+                                  ),
+                                  iconSize: 24,
+                                  elevation: 16,
+                                  style: TextStyle(
+                                    color: AppTheme.textPrimaryColor,
+                                    fontSize: 16,
+                                  ),
+                                  onChanged: (String? newValue) {
+                                    setState(() {
+                                      _leaderDeviceValue = newValue!;
+                                    });
+                                  },
+                                  items: _deviceOptions
+                                      .map<DropdownMenuItem<String>>((String value) {
+                                    return DropdownMenuItem<String>(
+                                      value: value,
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            value == 'Android' 
+                                                ? Icons.android 
+                                                : Icons.apple,
+                                            color: value == 'Android'
+                                                ? Colors.green
+                                                : AppTheme.textPrimaryColor,
+                                            size: 20,
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Text(value),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -404,12 +467,14 @@ class MemberForm extends StatefulWidget {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
-  final TextEditingController _deviceController = TextEditingController();
+  final List<String> deviceOptions;
+  String _selectedDevice = 'Android';
 
   MemberForm({
     super.key,
     required this.index,
     required this.onRemove,
+    required this.deviceOptions,
   });
 
   void updateIndex(int newIndex) {
@@ -420,7 +485,6 @@ class MemberForm extends StatefulWidget {
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
-    _deviceController.dispose();
   }
 
   TeamMember getMember() {
@@ -428,7 +492,7 @@ class MemberForm extends StatefulWidget {
       name: _nameController.text.trim(),
       email: _emailController.text.trim(),
       phone: _phoneController.text.trim(),
-      device: _deviceController.text.trim(),
+      device: _selectedDevice,
     );
   }
 
@@ -541,17 +605,76 @@ class _MemberFormState extends State<MemberForm> {
             ),
             const SizedBox(height: 16),
             
-            // Member Device
-            CustomTextField(
-              label: 'Device',
-              hint: 'Enter member\'s device (e.g., Laptop, Mobile)',
-              controller: widget._deviceController,
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter member\'s device';
-                }
-                return null;
-              },
+            // Member Device Dropdown
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Text(
+                    'Device',
+                    style: TextStyle(
+                      color: AppTheme.textSecondaryColor,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    color: AppTheme.cardColor.withOpacity(0.5),
+                    border: Border.all(
+                      color: AppTheme.glassBorderColor,
+                      width: 1,
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      dropdownColor: AppTheme.cardColor,
+                      isExpanded: true,
+                      value: widget._selectedDevice,
+                      icon: Icon(
+                        Icons.arrow_drop_down,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                      iconSize: 24,
+                      elevation: 16,
+                      style: TextStyle(
+                        color: AppTheme.textPrimaryColor,
+                        fontSize: 16,
+                      ),
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          widget._selectedDevice = newValue!;
+                        });
+                      },
+                      items: widget.deviceOptions
+                          .map<DropdownMenuItem<String>>((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Row(
+                            children: [
+                              Icon(
+                                value == 'Android' 
+                                    ? Icons.android 
+                                    : Icons.apple,
+                                color: value == 'Android'
+                                    ? Colors.green
+                                    : AppTheme.textPrimaryColor,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 10),
+                              Text(value),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ],

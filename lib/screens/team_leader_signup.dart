@@ -6,6 +6,8 @@ import 'team_member_details.dart';
 import 'package:flutter/services.dart';
 import 'package:csv/csv.dart';
 import 'dart:developer' as developer;
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
 
 class TeamLeaderSignupScreen extends StatefulWidget {
   const TeamLeaderSignupScreen({super.key});
@@ -21,11 +23,57 @@ class _TeamLeaderSignupScreenState extends State<TeamLeaderSignupScreen> {
   List<List<dynamic>> _teamsData = [];
   String? _errorMessage;
   bool _isCSVLoaded = false;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  Timer? _debounce;
+  bool _isCheckingTeamName = false;
+  bool _teamNameAlreadyRegistered = false;
 
   @override
   void initState() {
     super.initState();
     _loadCSV();
+    _setupTeamNameListener();
+  }
+
+  void _setupTeamNameListener() {
+    _teamNameController.addListener(() {
+      if (_debounce?.isActive ?? false) _debounce!.cancel();
+      _debounce = Timer(const Duration(milliseconds: 800), () {
+        final teamName = _teamNameController.text.trim();
+        if (teamName.length >= 3) {
+          _checkTeamRegistrationStatus(teamName);
+        } else {
+          setState(() {
+            _teamNameAlreadyRegistered = false;
+          });
+        }
+      });
+    });
+  }
+
+  Future<void> _checkTeamRegistrationStatus(String teamName) async {
+    if (teamName.isEmpty) return;
+    
+    setState(() {
+      _isCheckingTeamName = true;
+      _errorMessage = null;
+    });
+    
+    try {
+      final isRegistered = await _isTeamRegistered(teamName);
+      setState(() {
+        _teamNameAlreadyRegistered = isRegistered;
+        _isCheckingTeamName = false;
+        if (isRegistered) {
+          _errorMessage = 'This team has already been registered. Each team can only register once.';
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _isCheckingTeamName = false;
+        _errorMessage = null;
+      });
+    }
   }
 
   Future<void> _loadCSV() async {
@@ -70,9 +118,54 @@ class _TeamLeaderSignupScreenState extends State<TeamLeaderSignupScreen> {
     return false;
   }
 
+  // Check if team is already registered in Firebase
+  Future<bool> _isTeamRegistered(String teamName) async {
+    try {
+      developer.log('Checking if team is already registered: $teamName');
+      
+      // Query teams collection for matching team name (case insensitive)
+      final querySnapshot = await _firestore
+          .collection('teams')
+          .where('teamName', isEqualTo: teamName)
+          .get();
+      
+      // Check if any documents with this team name exist
+      if (querySnapshot.docs.isNotEmpty) {
+        developer.log('Team already registered: $teamName');
+        return true;
+      }
+      
+      // Also check with capitalized version
+      final capitalizedTeamName = teamName.split(' ')
+          .map((word) => word.isNotEmpty ? word[0].toUpperCase() + word.substring(1) : '')
+          .join(' ');
+      
+      if (capitalizedTeamName != teamName) {
+        final capitalizedQuerySnapshot = await _firestore
+            .collection('teams')
+            .where('teamName', isEqualTo: capitalizedTeamName)
+            .get();
+            
+        if (capitalizedQuerySnapshot.docs.isNotEmpty) {
+          developer.log('Team already registered (capitalized): $capitalizedTeamName');
+          return true;
+        }
+      }
+      
+      // No matching team found
+      developer.log('Team not registered in database: $teamName');
+      return false;
+    } catch (e) {
+      developer.log('Error checking team registration: $e');
+      // Default to false if there's an error
+      return false;
+    }
+  }
+
   @override
   void dispose() {
     _teamNameController.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 
@@ -96,6 +189,18 @@ class _TeamLeaderSignupScreenState extends State<TeamLeaderSignupScreen> {
 
     if (_formKey.currentState!.validate()) {
       final teamName = _teamNameController.text.trim();
+      
+      // First check if team is already registered in database to prevent duplicates
+      final isAlreadyRegistered = await _isTeamRegistered(teamName);
+      
+      if (isAlreadyRegistered) {
+        setState(() {
+          _teamNameAlreadyRegistered = true;
+          _errorMessage = 'This team has already been registered. Each team can only register once.';
+          _isLoading = false;
+        });
+        return;
+      }
       
       // For testing, allow "Test" team to always pass
       if (teamName.toLowerCase() == "test" || _teamExists(teamName)) {
@@ -254,6 +359,26 @@ class _TeamLeaderSignupScreenState extends State<TeamLeaderSignupScreen> {
                         Icons.groups,
                         color: AppTheme.textSecondaryColor,
                       ),
+                      suffixIcon: _isCheckingTeamName 
+                        ? SizedBox(
+                            height: 16,
+                            width: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppTheme.accentColor,
+                            ),
+                          ) 
+                        : _teamNameAlreadyRegistered
+                          ? Icon(
+                              Icons.error,
+                              color: Colors.red,
+                            )
+                          : _teamNameController.text.isNotEmpty && _teamNameController.text.length >= 3
+                            ? Icon(
+                                Icons.check_circle,
+                                color: Colors.green,
+                              )
+                            : null,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Please enter a team name';
@@ -261,6 +386,8 @@ class _TeamLeaderSignupScreenState extends State<TeamLeaderSignupScreen> {
                           return 'Team name must be at least 3 characters';
                         } else if (value.length > 20) {
                           return 'Team name must be less than 20 characters';
+                        } else if (_teamNameAlreadyRegistered) {
+                          return 'This team has already been registered';
                         }
                         return null;
                       },
