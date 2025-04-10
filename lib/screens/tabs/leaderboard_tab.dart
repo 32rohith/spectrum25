@@ -32,6 +32,19 @@ class LeaderboardTab extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
 
+          if (snapshot.data!.isEmpty) {
+            return Center(
+              child: Text(
+                'Coming Soon',
+                style: TextStyle(
+                  color: AppTheme.textPrimaryColor,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            );
+          }
+
           final teams = snapshot.data!;
           final topThree = teams.take(3).toList();
           final remainingTeams = teams.skip(3).take(7).toList();
@@ -138,4 +151,4 @@ class LeaderboardTab extends StatelessWidget {
       ),
     );
   }
-} 
+}

@@ -145,12 +145,14 @@ class _SubmitTabState extends State<SubmitTab> {
         'status': 'submitted', 
       });
 
-      // Update team with submission URL
+      // Update team with submission URL and description
       await _firestore.collection('teams').doc(_teamId).update({
         'projectSubmissionUrl': _githubLinkController.text.trim(),
         'projectSubmissionId': submissionRef.id,
         'projectSubmittedAt': FieldValue.serverTimestamp(),
         'projectTrack': _selectedTrack.displayName,
+        'projectDescription': _descriptionController.text.trim(),
+        'projectName': _projectNameController.text.trim(),
       });
 
       if (!mounted) return;
@@ -655,4 +657,4 @@ class _SubmitTabState extends State<SubmitTab> {
       ),
     );
   }
-} 
+}

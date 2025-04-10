@@ -46,6 +46,54 @@ class AuthService {
     try {
       developer.log('Starting team registration process for: $teamName');
       
+      // Check if a team with this name already exists but is not verified
+      developer.log('Checking if team already exists: $teamName');
+      final existingTeamQuery = await _firestore
+          .collection('teams')
+          .where('teamName', isEqualTo: teamName)
+          .get();
+      
+      // If team exists, check verification status
+      if (existingTeamQuery.docs.isNotEmpty) {
+        final existingTeamData = existingTeamQuery.docs.first.data();
+        final existingTeamId = existingTeamQuery.docs.first.id;
+        final bool isVerified = existingTeamData['isVerified'] ?? false;
+        
+        developer.log('Found existing team: $teamName, verified: $isVerified');
+        
+        // If team exists but is not verified, return only the credentials
+        if (!isVerified) {
+          developer.log('Team exists but is not verified, returning credentials only');
+          
+          // Get existing team credentials
+          final existingUsername = existingTeamData['username'] as String;
+          final existingPassword = existingTeamData['password'] as String;
+          
+          // Get leader auth details
+          final leaderAuthData = existingTeamData['leaderAuth'] as Map<String, dynamic>;
+          final leaderUsername = leaderAuthData['username'] as String;
+          final leaderPassword = leaderAuthData['password'] as String;
+          
+          // Create team object from existing data
+          final team = Team.fromJson(existingTeamData);
+          
+          return {
+            'success': true,
+            'team': team,
+            'message': 'Team already registered but not verified. Please use these credentials.',
+            'teamAuth': {
+              'username': existingUsername,
+              'password': existingPassword,
+            },
+            'leaderAuth': {
+              'username': leaderUsername,
+              'password': leaderPassword,
+            },
+          };
+        }
+      }
+      
+      // If team doesn't exist or is already verified, proceed with normal registration
       // Generate team credentials
       final teamCredentials = _generateCredentials(teamName, 'team');
       final teamUsername = teamCredentials['username']!;
@@ -452,6 +500,39 @@ class AuthService {
       // Get the updated team data
       final updatedTeamDoc = await _firestore.collection('teams').doc(teamId).get();
       final teamData = updatedTeamDoc.data() as Map<String, dynamic>;
+      
+      // Also update verification status for all team members
+      developer.log('Updating verification status for team members');
+      
+      // Get team leader email
+      final leaderAuth = teamData['leaderAuth'] as Map<String, dynamic>?;
+      if (leaderAuth != null && leaderAuth.containsKey('username')) {
+        final leaderUsername = leaderAuth['username'] as String;
+        final leaderEmail = '$leaderUsername@hackathon.app';
+        
+        // Update leader verification status
+        await _firestore.collection('members').doc(leaderEmail).update({
+          'isVerified': true,
+        });
+        developer.log('Updated leader verification status');
+      }
+      
+      // Get team members emails and update their verification status
+      final membersAuth = teamData['membersAuth'] as List<dynamic>?;
+      if (membersAuth != null) {
+        for (var memberAuth in membersAuth) {
+          if (memberAuth is Map<String, dynamic> && memberAuth.containsKey('username')) {
+            final memberUsername = memberAuth['username'] as String;
+            final memberEmail = '$memberUsername@hackathon.app';
+            
+            // Update member verification status
+            await _firestore.collection('members').doc(memberEmail).update({
+              'isVerified': true,
+            });
+          }
+        }
+        developer.log('Updated all team members verification status');
+      }
       
       // Create a Team object
       final team = Team.fromJson(teamData);

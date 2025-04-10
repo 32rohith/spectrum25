@@ -8,6 +8,8 @@ import 'package:csv/csv.dart';
 import 'dart:developer' as developer;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
+import '../models/team.dart';
+import 'team_credentials_screen.dart';
 
 class TeamLeaderSignupScreen extends StatefulWidget {
   const TeamLeaderSignupScreen({super.key});
@@ -174,6 +176,55 @@ class _TeamLeaderSignupScreenState extends State<TeamLeaderSignupScreen> {
       return false;
     }
   }
+  
+  // Get team data by name from Firestore
+  Future<Map<String, dynamic>?> _getTeamDataByName(String teamName) async {
+    try {
+      developer.log('Getting team data for: $teamName');
+      
+      if (teamName.trim().isEmpty) {
+        return null;
+      }
+      
+      // Query teams collection by teamName
+      final queryByTeamName = await _firestore
+          .collection('teams')
+          .where('teamName', isEqualTo: teamName)
+          .limit(1)
+          .get();
+      
+      if (queryByTeamName.docs.isNotEmpty) {
+        developer.log('Team data found by exact teamName match');
+        return queryByTeamName.docs.first.data();
+      }
+      
+      // Try a case-insensitive search if exact match fails
+      final normalizedTeamName = teamName.trim().toLowerCase();
+      final allTeams = await _firestore
+          .collection('teams')
+          .get();
+      
+      // Manually check all team names for case-insensitive matches
+      for (var doc in allTeams.docs) {
+        final data = doc.data();
+        final docTeamName = (data['teamName'] ?? '').toString().trim().toLowerCase();
+        
+        if (docTeamName == normalizedTeamName) {
+          developer.log('Team data found by case-insensitive match');
+          return data;
+        }
+      }
+      
+      developer.log('No team data found for: $teamName');
+      return null;
+    } catch (e) {
+      developer.log('Error getting team data: $e');
+      setState(() {
+        _errorMessage = 'Error retrieving team data: $e';
+      });
+      return null;
+    }
+  }
 
   @override
   void dispose() {
@@ -203,16 +254,50 @@ class _TeamLeaderSignupScreenState extends State<TeamLeaderSignupScreen> {
     if (_formKey.currentState!.validate()) {
       final teamName = _teamNameController.text.trim();
       
-      // First check if team is already registered in database to prevent duplicates
+      // First check if team is already registered in database
       final isAlreadyRegistered = await _isTeamRegistered(teamName);
       
       if (isAlreadyRegistered) {
-        setState(() {
-          _teamNameAlreadyRegistered = true;
-          _errorMessage = 'This team has already been registered. Each team can only register once.';
-          _isLoading = false;
-        });
-        return;
+        // Check if the team is verified or not
+        final teamData = await _getTeamDataByName(teamName);
+        
+        if (teamData != null) {
+          // If team exists but is not verified, show credentials instead of error
+          if (teamData['isVerified'] == false) {
+            developer.log('Team found but not verified, showing credentials');
+            
+            // Navigate to credentials screen with limited info
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => TeamCredentialsScreen(
+                  team: Team.fromJson(teamData),
+                  showLimitedInfo: true,
+                ),
+              ),
+            );
+            setState(() {
+              _isLoading = false;
+            });
+            return;
+          } else {
+            // Team is already registered and verified
+            setState(() {
+              _teamNameAlreadyRegistered = true;
+              _errorMessage = 'This team has already been registered. Each team can only register once.';
+              _isLoading = false;
+            });
+            return;
+          }
+        } else {
+          // Team is registered but data couldn't be retrieved
+          setState(() {
+            _teamNameAlreadyRegistered = true;
+            _errorMessage = 'This team has already been registered. Each team can only register once.';
+            _isLoading = false;
+          });
+          return;
+        }
       }
       
       // For testing, allow "Test" team to always pass
@@ -479,4 +564,4 @@ class _TeamLeaderSignupScreenState extends State<TeamLeaderSignupScreen> {
       ),
     );
   }
-} 
+}

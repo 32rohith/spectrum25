@@ -158,7 +158,7 @@ class _ProjectSubmissionTabState extends State<ProjectSubmissionTab> {
         
         developer.log('Created new submission with ID: $submissionId');
         
-        // Update the team document with the submission URL
+        // Update the team document with the submission URL and description
         await _firestore.collection('teams').doc(widget.team.teamId).update({
           'projectSubmissionUrl': _repoUrlController.text.trim(),
           'projectSubmissionId': submissionId,
@@ -166,6 +166,7 @@ class _ProjectSubmissionTabState extends State<ProjectSubmissionTab> {
           'projectSubmittedBy': widget.userId,
           'projectName': _projectNameController.text.trim(),
           'projectTrack': _selectedTrack,
+          'projectDescription': _descriptionController.text.trim(),
         });
         
         developer.log('Updated team document with submission details');
@@ -820,4 +821,4 @@ class _ProjectSubmissionTabState extends State<ProjectSubmissionTab> {
       ),
     );
   }
-} 
+}
