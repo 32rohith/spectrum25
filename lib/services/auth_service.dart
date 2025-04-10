@@ -17,12 +17,19 @@ class AuthService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   
   // Generate a unique username and password
-  Map<String, String> _generateCredentials(String prefix, String role) {
+  Map<String, String> _generateCredentials(String name, String role) {
     final random = Random();
-    // Make usernames more descriptive
-    final username = '${prefix.toLowerCase().replaceAll(' ', '_')}_${role}_${random.nextInt(10000)}';
-    // Create stronger passwords with role prefix
-    final password = '${role.capitalize()}@${random.nextInt(10000)}';
+    // Get first 4 letters of name (or use full name if less than 4 chars)
+    final namePrefix = name.length > 4 ? name.substring(0, 4).toLowerCase() : name.toLowerCase();
+    
+    // Generate 4 random digits
+    final fourDigits = random.nextInt(9000) + 1000; // Ensures 4 digits
+    
+    // Create username: first4_digits
+    final username = '${namePrefix}_$fourDigits';
+    
+    // Create password: first4@digits
+    final password = '$namePrefix@$fourDigits';
     
     return {
       'username': username,
@@ -244,69 +251,65 @@ class AuthService {
       final memberQuery = await _firestore
           .collection('members')
           .where('username', isEqualTo: username)
-          .limit(1)
           .get();
           
       // If found a member/leader by exact username
       if (memberQuery.docs.isNotEmpty) {
-        final memberDoc = memberQuery.docs.first;
-        final memberData = memberDoc.data();
-        final userRole = memberData['role'] as String? ?? '';
-        
-        developer.log('Found user account by username: $userRole');
-        
-        // Verify password
-        if (memberData['password'] != password) {
-          developer.log('Password verification failed');
-          return {
-            'success': false,
-            'message': 'Invalid password',
-          };
-        }
-
-        // Check if registered
-        if (memberData['isRegistered'] != true) {
-          developer.log('Account not registered');
-          return {
-            'success': false,
-            'message': 'This account has not been properly registered',
-          };
-        }
-        
-        final teamId = memberData['teamId'];
-        
-        // Get team data
-        developer.log('Retrieving team data for $userRole');
-        final teamSnapshot = await _firestore.collection('teams').doc(teamId).get();
-        
-        if (teamSnapshot.exists) {
-          developer.log('Team data found');
-          final teamData = teamSnapshot.data() as Map<String, dynamic>;
+        // We need to check all docs because there might be multiple results
+        for (var memberDoc in memberQuery.docs) {
+          final memberData = memberDoc.data();
+          final userRole = memberData['role'] as String? ?? '';
           
-          // Check if team is registered
-          if (teamData['isRegistered'] != true) {
-            developer.log('Team not registered');
-            return {
-              'success': false,
-              'message': 'This team has not been properly registered',
-            };
+          developer.log('Found user account by username: $userRole');
+          
+          // Verify password
+          if (memberData['password'] != password) {
+            developer.log('Password verification failed for this account');
+            continue; // Try next account if there are multiple matches
+          }
+
+          // Check if registered
+          if (memberData['isRegistered'] != true) {
+            developer.log('Account not registered');
+            continue;
           }
           
-          final team = Team.fromJson(teamData);
-          return {
-            'success': true,
-            'team': team,
-            'userRole': userRole,
-            'userName': memberData['name'],
-            'message': 'Login successful as $userRole',
-          };
-        } else {
-          developer.log('Team not found');
-          return {
-            'success': false,
-            'message': 'Team not found',
-          };
+          final teamId = memberData['teamId'];
+          
+          // Get team data
+          developer.log('Retrieving team data for $userRole');
+          final teamSnapshot = await _firestore.collection('teams').doc(teamId).get();
+          
+          if (teamSnapshot.exists) {
+            developer.log('Team data found');
+            final teamData = teamSnapshot.data() as Map<String, dynamic>;
+            
+            // Check if team is registered
+            if (teamData['isRegistered'] != true) {
+              developer.log('Team not registered');
+              continue;
+            }
+            
+            final team = Team.fromJson(teamData);
+            
+            // Explicitly log user role for debugging
+            developer.log('Login successful with role: $userRole');
+            
+            return {
+              'success': true,
+              'team': team,
+              'userRole': userRole,
+              'userName': memberData['name'],
+              'message': 'Login successful as $userRole',
+            };
+          }
         }
+        
+        // If we got here, we found matches but none worked
+        return {
+          'success': false,
+          'message': 'Invalid credentials or unregistered account',
+        };
       }
       
       // If username not found directly, try fuzzy matching for leaders
@@ -321,8 +324,7 @@ class AuthService {
         final storedUsername = data['username'] as String? ?? '';
         
         // Check if the stored username contains the input or vice versa
-        if (storedUsername.contains(username) || username.contains(storedUsername) || 
-            (username.contains('leader') && storedUsername.contains(username.replaceAll('leader', '')))) {
+        if (storedUsername.contains(username) || username.contains(storedUsername)) {
           developer.log('Found potential leader match: $storedUsername');
           
           // Verify password

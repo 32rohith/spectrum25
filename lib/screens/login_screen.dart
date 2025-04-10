@@ -61,15 +61,23 @@ class _LoginScreenState extends State<LoginScreen> {
       });
 
       if (result['success']) {
-        // Check if the user role matches the expected role based on login type
+        // Get user role from result
         String userRole = result['userRole'] ?? '';
+        print('Processing successful login with role: $userRole on screen type - isLeader: ${widget.isLeader}, isMember: ${widget.isMember}');
         
-        if ((widget.isLeader && userRole != 'leader') || 
-            (widget.isMember && userRole != 'member')) {
+        // Check if login page type matches the user role
+        bool isCorrectPage = (widget.isLeader && userRole == 'leader') || 
+                             (widget.isMember && userRole == 'member');
+        
+        if (!isCorrectPage) {
           setState(() {
-            _errorMessage = widget.isLeader 
-                ? 'These credentials are for a team member, not a leader. Please use leader login page.'
-                : 'These credentials are for a team leader, not a member. Please use leader login page.';
+            if (userRole == 'leader' && !widget.isLeader) {
+              _errorMessage = 'These credentials are for a team leader. Please use the leader login page.';
+            } else if (userRole == 'member' && !widget.isMember) {
+              _errorMessage = 'These credentials are for a team member. Please use the member login page.';
+            } else {
+              _errorMessage = 'Invalid login credentials for this page.';
+            }
           });
           return;
         }
@@ -86,7 +94,7 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
         
-        // Navigate to QR verification if not verified yet
+        // Navigate to appropriate screen based on verification status
         if (!result['team'].isVerified) {
           Navigator.pushReplacement(
             context,
@@ -95,8 +103,22 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           );
         } else {
-          // Navigate to main screen
-          // TODO: Navigate to main screen
+          // Navigate to main screen based on role
+          if (userRole == 'leader') {
+            // TODO: Navigate to leader dashboard
+            print('Navigating to leader dashboard');
+            // Temporary placeholder until navigation is implemented
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Leader dashboard would open here')),
+            );
+          } else {
+            // TODO: Navigate to member dashboard
+            print('Navigating to member dashboard');
+            // Temporary placeholder until navigation is implemented
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Member dashboard would open here')),
+            );
+          }
         }
       } else {
         setState(() {
