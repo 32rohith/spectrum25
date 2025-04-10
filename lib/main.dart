@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -43,6 +46,8 @@ void main() async {
   // Initialize plugins
   await _initPathProvider();
   await initializeFirebase();  
+  // Note: Impeller settings should be configured in the app's native settings
+  // rather than through code, as FlutterView.useImpeller is not available
   runApp(const MyApp());
 }
 

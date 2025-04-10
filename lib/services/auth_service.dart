@@ -745,13 +745,55 @@ class AuthService {
     try {
       developer.log('Getting meal status for member: $email');
       
-      // Get member document
+      // Check if we're using a Firebase Auth email (@hackathon.app)
+      if (email.endsWith('@hackathon.app')) {
+        // Try to find the member by username first
+        final username = email.split('@')[0];
+        developer.log('Using username to find member: $username');
+        
+        final memberQuery = await _firestore
+            .collection('members')
+            .where('username', isEqualTo: username)
+            .limit(1)
+            .get();
+            
+        if (memberQuery.docs.isNotEmpty) {
+          final memberData = memberQuery.docs.first.data();
+          
+          // Check if member has meal tracking data
+          if (!memberData.containsKey('meals') || memberData['meals'] == null) {
+            // Initialize meal tracking if it doesn't exist
+            final mealTracking = _initializeMealTracking();
+            await memberQuery.docs.first.reference.update({
+              'meals': mealTracking,
+            });
+            
+            return {
+              'success': true,
+              'mealQRCode': memberData['mealQRCode'] ?? '',
+              'meals': mealTracking,
+              'name': memberData['name'] ?? 'Unknown',
+            };
+          }
+          
+          // Return meal status
+          return {
+            'success': true,
+            'mealQRCode': memberData['mealQRCode'] ?? '',
+            'meals': memberData['meals'],
+            'name': memberData['name'] ?? 'Unknown',
+          };
+        }
+      }
+      
+      // If not found by username or not a hackathon.app email, try the original approach
+      // Get member document by email directly
       final memberDoc = await _firestore.collection('members').doc(email).get();
       
       if (!memberDoc.exists) {
         return {
           'success': false,
-          'message': 'Member not found',
+          'message': 'Member not found. Please make sure you are logged in with a team member account.',
         };
       }
       

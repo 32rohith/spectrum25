@@ -63,6 +63,8 @@ class _FoodTabState extends State<FoodTab> {
         return;
       }
       
+      print('Food Tab - Attempting to load meal data for: ${user.email}');
+      
       // Get meal status from the AuthService
       final result = await _authService.getMemberMealStatus(user.email!);
       
@@ -73,17 +75,61 @@ class _FoodTabState extends State<FoodTab> {
           _memberName = result['name'] ?? '';
           _isLoading = false;
         });
+        print('Food Tab - Successfully loaded meal data for: $_memberName');
       } else {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = result['message'] ?? 'Failed to load meal information.';
-        });
+        // Try a direct lookup by querying the members collection
+        print('Food Tab - Initial lookup failed, trying direct Firestore query');
+        
+        try {
+          // Try to find by username if using Firebase Auth format
+          String username = '';
+          if (user.email!.contains('@hackathon.app')) {
+            username = user.email!.split('@')[0];
+            print('Food Tab - Extracted username: $username');
+            
+            // Query by username
+            final membersQuery = await _firestore
+                .collection('members')
+                .where('username', isEqualTo: username)
+                .limit(1)
+                .get();
+                
+            if (membersQuery.docs.isNotEmpty) {
+              final memberData = membersQuery.docs.first.data();
+              
+              setState(() {
+                _mealQRCode = memberData['mealQRCode'] ?? '';
+                _meals = Map<String, dynamic>.from(memberData['meals'] ?? {});
+                _memberName = memberData['name'] ?? '';
+                _isLoading = false;
+                _errorMessage = null;
+              });
+              
+              print('Food Tab - Successfully loaded data directly for: $_memberName');
+              return;
+            }
+          }
+          
+          // If we got here, direct lookup failed too
+          setState(() {
+            _isLoading = false;
+            _errorMessage = result['message'] ?? 'Failed to load meal information.';
+          });
+          print('Food Tab - All lookup methods failed: ${result['message']}');
+        } catch (directError) {
+          setState(() {
+            _isLoading = false;
+            _errorMessage = 'Error during direct lookup: $directError';
+          });
+          print('Food Tab - Error during direct lookup: $directError');
+        }
       }
     } catch (e) {
       setState(() {
         _isLoading = false;
         _errorMessage = 'Error loading meal information: $e';
       });
+      print('Food Tab - Error loading meal data: $e');
     }
   }
   
