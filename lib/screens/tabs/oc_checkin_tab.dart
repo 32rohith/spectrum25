@@ -798,34 +798,74 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
         return;
       }
       
-      // Get team data
-      final teamData = teamDoc.data() ?? {};
+      // Get team data - safely convert to Map
+      final Map<String, dynamic> teamData = Map<String, dynamic>.from(teamDoc.data() ?? {});
       
-      // Extract members and leader
+      // Extract members and leader with safer type handling
       Map<String, dynamic> leader = {};
       List<dynamic> members = [];
       
-      if (teamData.containsKey('leader') && teamData['leader'] != null) {
-        leader = Map<String, dynamic>.from(teamData['leader']);
+      // Extract leader data safely
+      if (teamData.containsKey('leader')) {
+        if (teamData['leader'] is Map) {
+          // Try to safely convert from Map to Map<String, dynamic>
+          try {
+            leader = Map<String, dynamic>.from(teamData['leader'] as Map);
+          } catch (e) {
+            // If conversion fails, create a basic map with any available name
+            leader = {
+              'name': teamData['leader'] is Map ? 
+                     (teamData['leader'] as Map)['name'] ?? 'Unknown' : 'Unknown',
+            };
+          }
+        }
       }
       
-      if (teamData.containsKey('members') && teamData['members'] != null) {
-        members = List<dynamic>.from(teamData['members']);
+      // Extract members data safely
+      if (teamData.containsKey('members')) {
+        if (teamData['members'] is List) {
+          // Process each member individually to avoid cast errors
+          final rawMembers = teamData['members'] as List;
+          for (final rawMember in rawMembers) {
+            if (rawMember is Map) {
+              try {
+                members.add(Map<String, dynamic>.from(rawMember));
+              } catch (e) {
+                // If conversion fails, add a basic member
+                members.add({'name': rawMember is Map ? rawMember['name'] ?? 'Unknown' : 'Unknown'});
+              }
+            } else if (rawMember != null) {
+              // Add non-null, non-Map members as basic maps
+              members.add({'name': 'Unknown Member'});
+            }
+          }
+        } else if (teamData['members'] is Map) {
+          // If members is a Map, convert it to a list with one member
+          try {
+            members = [Map<String, dynamic>.from(teamData['members'] as Map)];
+          } catch (e) {
+            members = [{'name': 'Unknown Member'}];
+          }
+        }
       }
       
       // Convert to list of members including the leader
       final membersList = <Map<String, dynamic>>[];
       
-      // Add leader
+      // Add leader with role
       leader['role'] = 'Team Leader';
       if (!leader.containsKey('isVerified')) {
         leader['isVerified'] = false;
       }
       membersList.add(leader);
       
-      // Add members
+      // Add members with roles
       for (var i = 0; i < members.length; i++) {
-        final member = Map<String, dynamic>.from(members[i]);
+        // Ensure member is a Map<String, dynamic>
+        final Map<String, dynamic> member = members[i] is Map ? 
+                                      Map<String, dynamic>.from(members[i]) : 
+                                      {'name': 'Unknown Member ${i+1}'};
+        
         member['role'] = 'Member ${i + 1}';
         if (!member.containsKey('isVerified')) {
           member['isVerified'] = false;
@@ -840,6 +880,7 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
         _hasChanges = false;
       });
     } catch (e) {
+      print('Error loading team details: $e');
       setState(() {
         _isLoading = false;
         _errorMessage = 'Error loading team details: $e';
@@ -864,42 +905,52 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
     });
     
     try {
-      // Prepare the batch update
-      final batch = _firestore.batch();
-      final teamRef = _firestore.collection('teams').doc(widget.teamId);
+      // Get the current team document to update with correct data structure
+      final teamDoc = await _firestore.collection('teams').doc(widget.teamId).get();
+      if (!teamDoc.exists) {
+        throw Exception('Team document not found');
+      }
       
-      // Update leader verification
+      final teamData = Map<String, dynamic>.from(teamDoc.data() ?? {});
+      
+      // Update leader verification status
       final leaderVerified = _membersList[0]['isVerified'] ?? false;
       
-      // Update members verification
-      final List<Map<String, dynamic>> updatedMembers = [];
-      for (int i = 1; i < _membersList.length; i++) {
-        updatedMembers.add({
-          ..._membersList[i],
-          'isVerified': _membersList[i]['isVerified'] ?? false,
-        });
+      if (teamData.containsKey('leader') && teamData['leader'] is Map) {
+        // Keep all leader data intact, only update isVerified field
+        final leaderData = Map<String, dynamic>.from(teamData['leader'] as Map);
+        leaderData['isVerified'] = leaderVerified;
+        teamData['leader'] = leaderData;
       }
       
-      // Set team overall verification status based on all members
+      // Update members verification status while keeping all other data intact
+      if (teamData.containsKey('members') && teamData['members'] is List) {
+        final existingMembers = List<dynamic>.from(teamData['members'] as List);
+        
+        // Update each member's verification status
+        for (int i = 0; i < existingMembers.length && i + 1 < _membersList.length; i++) {
+          if (existingMembers[i] is Map) {
+            final memberData = Map<String, dynamic>.from(existingMembers[i] as Map);
+            // Only update the isVerified field
+            memberData['isVerified'] = _membersList[i + 1]['isVerified'] ?? false;
+            existingMembers[i] = memberData;
+          }
+        }
+        
+        teamData['members'] = existingMembers;
+      }
+      
+      // Set overall team verification status
       final bool allVerified = leaderVerified && 
-                               updatedMembers.every((m) => m['isVerified'] == true);
+                               (teamData['members'] is List ? 
+                                (teamData['members'] as List).every((m) => 
+                                  m is Map && m['isVerified'] == true) : 
+                                true);
       
-      // Build the update data
-      final updateData = {
-        'leader.isVerified': leaderVerified,
-        'isVerified': allVerified,
-      };
+      teamData['isVerified'] = allVerified;
       
-      // Add each member's verification status
-      for (int i = 0; i < updatedMembers.length; i++) {
-        updateData['members.$i.isVerified'] = updatedMembers[i]['isVerified'];
-      }
-      
-      // Add the update to the batch
-      batch.update(teamRef, updateData);
-      
-      // Commit the batch
-      await batch.commit();
+      // Update the entire document with the modified data
+      await _firestore.collection('teams').doc(widget.teamId).set(teamData);
       
       setState(() {
         _isSaving = false;
@@ -913,6 +964,7 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
         ),
       );
     } catch (e) {
+      print('Error updating verification status: $e');
       setState(() {
         _isSaving = false;
       });

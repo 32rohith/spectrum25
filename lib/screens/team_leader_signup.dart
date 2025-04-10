@@ -123,31 +123,40 @@ class _TeamLeaderSignupScreenState extends State<TeamLeaderSignupScreen> {
     try {
       developer.log('Checking if team is already registered: $teamName');
       
-      // Query teams collection for matching team name (case insensitive)
-      final querySnapshot = await _firestore
+      if (teamName.trim().isEmpty) {
+        return false;
+      }
+      
+      // Normalize the team name by trimming spaces and converting to lowercase for comparison
+      final normalizedTeamName = teamName.trim().toLowerCase();
+      
+      // Query teams collection by both fields that could contain the team name
+      final queryByTeamName = await _firestore
           .collection('teams')
           .where('teamName', isEqualTo: teamName)
+          .limit(1)
           .get();
       
-      // Check if any documents with this team name exist
-      if (querySnapshot.docs.isNotEmpty) {
-        developer.log('Team already registered: $teamName');
+      if (queryByTeamName.docs.isNotEmpty) {
+        developer.log('Team found by exact teamName match: $teamName');
         return true;
       }
       
-      // Also check with capitalized version
-      final capitalizedTeamName = teamName.split(' ')
-          .map((word) => word.isNotEmpty ? word[0].toUpperCase() + word.substring(1) : '')
-          .join(' ');
+      // Try a case-insensitive search (requires Firestore index for this field)
+      final allTeams = await _firestore
+          .collection('teams')
+          .get();
       
-      if (capitalizedTeamName != teamName) {
-        final capitalizedQuerySnapshot = await _firestore
-            .collection('teams')
-            .where('teamName', isEqualTo: capitalizedTeamName)
-            .get();
-            
-        if (capitalizedQuerySnapshot.docs.isNotEmpty) {
-          developer.log('Team already registered (capitalized): $capitalizedTeamName');
+      // Manually check all team names for case-insensitive matches
+      for (var doc in allTeams.docs) {
+        final data = doc.data();
+        
+        // Check both teamName and name fields
+        final docTeamName = (data['teamName'] ?? '').toString().trim().toLowerCase();
+        final docName = (data['name'] ?? '').toString().trim().toLowerCase();
+        
+        if (docTeamName == normalizedTeamName || docName == normalizedTeamName) {
+          developer.log('Team found by case-insensitive match: $teamName');
           return true;
         }
       }
@@ -157,6 +166,10 @@ class _TeamLeaderSignupScreenState extends State<TeamLeaderSignupScreen> {
       return false;
     } catch (e) {
       developer.log('Error checking team registration: $e');
+      // Show error in UI instead of silently failing
+      setState(() {
+        _errorMessage = 'Error checking team registration status: $e';
+      });
       // Default to false if there's an error
       return false;
     }
