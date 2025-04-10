@@ -189,24 +189,26 @@ class _OCFoodTabState extends State<OCFoodTab> {
     });
   }
   
-  Future<void> _processScan(String? qrCode) async {
-    if (qrCode == null || _selectedMeal == null) return;
-    
+  // Handle scanned QR code
+  Future<void> _handleQRCode(String qrCode) async {
     setState(() {
       _isLoading = true;
-      _lastScanResult = null;
     });
     
     try {
-      // Decode QR data to check if it's our format
+      developer.log('QR code scanned: $qrCode');
+      
+      // Try to parse JSON - with error handling for malformed data
       Map<String, dynamic> qrJson;
       try {
         qrJson = json.decode(qrCode);
+        developer.log('Successfully parsed QR JSON: ${qrJson.toString()}');
       } catch (e) {
+        developer.log('Error parsing QR JSON: $e');
         setState(() {
           _lastScanResult = {
             'success': false,
-            'message': 'Invalid QR code format: Not valid JSON data.',
+            'message': 'Invalid QR code format. Please scan a valid member QR code.',
           };
           _isLoading = false;
           _isScanning = false;
@@ -218,12 +220,29 @@ class _OCFoodTabState extends State<OCFoodTab> {
         return;
       }
       
-      // Check if it's a meal QR code
-      if (qrJson['type'] != 'member_qr') {
+      // Check if it's a member QR code (more robust check)
+      if (qrJson['type'] == null || qrJson['type'] != 'member_qr') {
         setState(() {
           _lastScanResult = {
             'success': false,
             'message': 'Invalid QR code: This is not a member QR code.',
+          };
+          _isLoading = false;
+          _isScanning = false;
+        });
+        
+        // Stop scanner
+        _scannerController?.dispose();
+        _scannerController = null;
+        return;
+      }
+      
+      // Ensure memberName and teamName are present
+      if (qrJson['memberName'] == null || qrJson['teamName'] == null) {
+        setState(() {
+          _lastScanResult = {
+            'success': false,
+            'message': 'Invalid member QR code: Missing required information.',
           };
           _isLoading = false;
           _isScanning = false;
@@ -1069,7 +1088,7 @@ class _OCFoodTabState extends State<OCFoodTab> {
                                       onDetect: (capture) {
                                         final barcodes = capture.barcodes;
                                         if (barcodes.isNotEmpty && barcodes.first.rawValue != null) {
-                                          _processScan(barcodes.first.rawValue);
+                                          _handleQRCode(barcodes.first.rawValue!);
                                         }
                                       },
                                     ),

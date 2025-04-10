@@ -1,10 +1,12 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'dart:math';
-import '../models/meal_tracking.dart';
 import 'dart:convert';
-import 'package:crypto/crypto.dart';
+import 'dart:math';
 import 'dart:developer' as developer;
 import 'dart:io' show Platform;
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:crypto/crypto.dart';
+import '../models/meal_tracking.dart';
 import './email_service.dart';
 
 class MealService {
@@ -21,9 +23,9 @@ class MealService {
         return;
       }
       
-      // Calculate times for short test meal
+      // Calculate times for test meal
       final now = DateTime.now();
-      final tenMinutesFromNow = now.add(Duration(minutes: 10));
+      final oneHourFromNow = now.add(Duration(hours: 1));
       
       // Define the hackathon meal schedule
       final meals = [
@@ -49,18 +51,11 @@ class MealService {
           isActive: false,
         ),
         Meal(
-          id: 'quick_test_meal',
-          name: 'Quick Test (Ends in 10min)',
+          id: 'test_meal',
+          name: 'Test Meal (1 hour)',
           startTime: now,
-          endTime: tenMinutesFromNow,
+          endTime: oneHourFromNow,
           isActive: true,
-        ),
-        Meal(
-          id: 'standard_test_meal',
-          name: 'Standard Test Meal',
-          startTime: tenMinutesFromNow.add(Duration(minutes: 2)), // Start 2 minutes after the first test meal ends
-          endTime: tenMinutesFromNow.add(Duration(minutes: 62)), // Lasts for 1 hour
-          isActive: false,
         ),
       ];
       
@@ -71,7 +66,7 @@ class MealService {
       }
       
       await batch.commit();
-      developer.log('Meals initialized successfully with 2 test meals: Quick 10-min test and 1-hour standard test');
+      developer.log('Meals initialized successfully with test meal that lasts 1 hour');
     } catch (e) {
       developer.log('Error initializing meals: $e');
       throw Exception('Failed to initialize meals: $e');
@@ -97,19 +92,19 @@ class MealService {
     final bytes = utf8.encode(data);
     final hash = sha256.convert(bytes).toString();
     
-    // Generate a unique ID for this QR code
-    final qrId = '$memberName-${timestamp.substring(timestamp.length - 6)}';
+    // Generate a unique ID for this QR code - make it shorter for reliable scanning
+    final qrId = '${memberName.substring(0, min(memberName.length, 10))}-${timestamp.substring(timestamp.length - 4)}';
     
-    // Create the QR data
+    // Create the QR data - simplified for better scanning reliability
     final qrData = {
+      'type': 'member_qr',
       'qrId': qrId,
       'memberName': memberName,
       'teamName': teamName,
-      'timestamp': timestamp,
-      'hash': hash,
-      'type': 'member_qr',
+      'hash': hash.substring(0, min(hash.length, 16)), // Use shortened hash for reliability
     };
     
+    // Encode with minimal whitespace for better QR density
     return json.encode(qrData);
   }
   
@@ -223,14 +218,36 @@ class MealService {
   // Process a member QR code scan
   Future<Map<String, dynamic>> processMemberQRScan(String qrData) async {
     try {
-      // Decode QR data
-      Map<String, dynamic> qrJson = json.decode(qrData);
+      // Log the raw QR data for debugging
+      developer.log('Processing member QR scan with data: $qrData');
+      
+      // Decode QR data with better error handling
+      Map<String, dynamic> qrJson;
+      try {
+        qrJson = json.decode(qrData);
+      } catch (e) {
+        developer.log('Error decoding QR JSON: $e');
+        return {
+          'success': false,
+          'message': 'Invalid QR code format: Could not parse JSON.',
+        };
+      }
       
       // Verify this is a member QR code
       if (qrJson['type'] != 'member_qr') {
+        developer.log('Invalid QR type: ${qrJson['type']}');
         return {
           'success': false,
           'message': 'Invalid QR code: Not a member QR code',
+        };
+      }
+      
+      // Verify required fields exist
+      if (!qrJson.containsKey('memberName') || !qrJson.containsKey('teamName')) {
+        developer.log('Missing required fields in QR data');
+        return {
+          'success': false,
+          'message': 'Invalid QR code: Missing required member information',
         };
       }
       
@@ -646,23 +663,24 @@ class MealService {
   // Reset and reinitialize meals for testing purposes
   Future<void> resetAndReinitializeMeals() async {
     try {
-      // First delete all existing meals
+      // Get all existing meals
       final mealsSnapshot = await _firestore.collection('meals').get();
-      final batch = _firestore.batch();
       
+      // Delete all existing meals
+      final batch = _firestore.batch();
       for (var doc in mealsSnapshot.docs) {
-        batch.delete(_firestore.collection('meals').doc(doc.id));
+        batch.delete(doc.reference);
       }
       
       await batch.commit();
-      developer.log('Existing meals deleted');
+      developer.log('All existing meals deleted successfully, including any previous test meals');
       
-      // Then reinitialize with fresh data
+      // Reinitialize meals
       await initializeMeals();
-      developer.log('Meals reinitialized successfully');
+      developer.log('Meals reinitialized successfully with new 1-hour test meal');
     } catch (e) {
-      developer.log('Error resetting meals: $e');
-      throw Exception('Failed to reset meals: $e');
+      developer.log('Error resetting and reinitializing meals: $e');
+      throw Exception('Failed to reset and reinitialize meals: $e');
     }
   }
 
