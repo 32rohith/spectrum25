@@ -1,5 +1,6 @@
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'auth_service.dart';
 
 class QRScannerService {
@@ -7,19 +8,73 @@ class QRScannerService {
   
   Future<Map<String, dynamic>> processQRCode(String qrData) async {
     try {
-      // Check if QR data is valid (it should contain a team verification token)
+      // Check if QR data is valid for team verification
       if (qrData.startsWith('verify_team:')) {
         // Extract team ID from QR data
         final teamId = qrData.split(':')[1];
         
         // Verify the team
         return await _authService.verifyTeam(teamId);
-      } else {
-        return {
-          'success': false,
-          'message': 'Invalid QR code',
-        };
+      } 
+      // Check if this is an OC verification QR code
+      else if (qrData.contains('"id"') && qrData.contains('"ocCode"') && qrData.contains('"timestamp"')) {
+        try {
+          // Decode the JSON data
+          final Map<String, dynamic> jsonData = json.decode(qrData);
+          
+          // Verify OC QR code format
+          if (jsonData.containsKey('id') && 
+              jsonData.containsKey('ocCode') && 
+              jsonData.containsKey('timestamp')) {
+            
+            // Check if ID matches the expected value
+            final String id = jsonData['id'];
+            final String ocCode = jsonData['ocCode'];
+            final int timestamp = jsonData['timestamp'];
+            
+            // Check that the QR code is not too old (5 minute expiration)
+            final int currentTime = DateTime.now().millisecondsSinceEpoch;
+            final bool notExpired = 
+                (currentTime - timestamp) < const Duration(minutes: 5).inMilliseconds;
+            
+            // Check if this is a valid OC verification code
+            if (id == "OC_SPECTAPP_2023" && ocCode == "SPECTRUM24" && notExpired) {
+              // Get the current user's team ID
+              final currentUser = await _authService.getCurrentTeam();
+              
+              if (currentUser != null) {
+                // Verify the team
+                return await _authService.verifyTeam(currentUser.teamId);
+              } else {
+                return {
+                  'success': false,
+                  'message': 'Could not find your team information',
+                };
+              }
+            } else if (!notExpired) {
+              return {
+                'success': false,
+                'message': 'QR code has expired. Please ask for a new code.',
+              };
+            } else {
+              return {
+                'success': false,
+                'message': 'Invalid verification code',
+              };
+            }
+          }
+        } catch (e) {
+          return {
+            'success': false,
+            'message': 'Invalid QR code format',
+          };
+        }
       }
+      
+      return {
+        'success': false,
+        'message': 'Invalid QR code',
+      };
     } catch (e) {
       return {
         'success': false,
