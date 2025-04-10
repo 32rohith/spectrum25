@@ -280,46 +280,46 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
               SizedBox(
                 height: MediaQuery.of(context).size.height * 0.05,
                 child: Text(
-                  'Team Check-in',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimaryColor,
-                  ),
-                ),
+            'Team Check-in',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimaryColor,
+            ),
+          ),
               ),
               SizedBox(
                 height: MediaQuery.of(context).size.height * 0.03,
                 child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Verify and check in teams for the hackathon',
-                        style: TextStyle(
-                          color: AppTheme.textSecondaryColor,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                  ],
+              children: [
+                Expanded(
+                  child: Text(
+            'Verify and check in teams for the hackathon',
+            style: TextStyle(
+              color: AppTheme.textSecondaryColor,
+              fontSize: 16,
+            ),
+          ),
                 ),
+              ],
+            ),
               ),
               
               // Action buttons for QR
               SizedBox(
                 height: MediaQuery.of(context).size.height * 0.08,
                 child: Row(
-                  children: [
+            children: [
                     // QR Generate Button
-                    Expanded(
+              Expanded(
                       child: ElevatedButton(
                         onPressed: _toggleQRCode,
                         style: ElevatedButton.styleFrom(
@@ -332,21 +332,21 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
+                        children: [
+                          Icon(
                               _showQRCode ? Icons.close : Icons.qr_code,
                               color: Colors.white,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
                               _showQRCode ? 'Hide QR Code' : 'Show QR Code',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,
-                              ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
+                      ),
                       ),
                     ),
                   ],
@@ -362,14 +362,14 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         SizedBox(height: MediaQuery.of(context).size.height * 0.01),
-                        Text(
+                      Text(
                           'OC Verification QR Code',
-                          style: TextStyle(
-                            color: AppTheme.textPrimaryColor,
+                        style: TextStyle(
+                          color: AppTheme.textPrimaryColor,
                             fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          fontWeight: FontWeight.bold,
                         ),
+                      ),
                         SizedBox(height: MediaQuery.of(context).size.height * 0.01),
                         Text(
                           'Show this QR code to team leaders for verification',
@@ -409,10 +409,10 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                           textAlign: TextAlign.center,
                         ),
                         SizedBox(height: MediaQuery.of(context).size.height * 0.01),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
+              ),
               
               SizedBox(height: MediaQuery.of(context).size.height * 0.02),
               
@@ -422,58 +422,58 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                   // First row of stats
                   Row(
                     children: [
-                      Expanded(
+              Expanded(
                         child: SizedBox(
                           height: MediaQuery.of(context).size.height * 0.12,
-                          child: GlassCard(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.groups,
-                                      color: AppTheme.primaryColor,
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 8),
+                child: GlassCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.groups,
+                            color: AppTheme.primaryColor,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        'Total Teams',
-                                        style: TextStyle(
-                                          color: AppTheme.textSecondaryColor,
-                                          fontSize: 14,
+                            'Total Teams',
+                            style: TextStyle(
+                              color: AppTheme.textSecondaryColor,
+                              fontSize: 14,
                                         ),
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  '${_teams.length}',
-                                  style: TextStyle(
-                                    color: AppTheme.textPrimaryColor,
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
                             ),
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                          '${_teams.length}',
+                        style: TextStyle(
+                          color: AppTheme.textPrimaryColor,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
                         ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
                       ),
                       SizedBox(width: MediaQuery.of(context).size.width * 0.02),
                       Expanded(
                         child: SizedBox(
                           height: MediaQuery.of(context).size.height * 0.12,
                           child: GlassCard(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
                                     Icon(
                                       Icons.check_circle,
                                       color: AppTheme.accentColor,
@@ -483,65 +483,32 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                                     Expanded(
                                       child: Text(
                                         'Teams Checked In',
-                                        style: TextStyle(
+                      style: TextStyle(
                                           color: AppTheme.textSecondaryColor,
                                           fontSize: 14,
-                                        ),
+                      ),
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
-                                      ),
+                    ),
                                     ),
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                Text(
-                                  '${_teams.where((team) {
-                                    // Check if team has completed signup
-                                    bool hasCompletedSignup = team['leader'] != null && 
-                                            team['leader'] is Map && 
-                                            (team['leader'] as Map).isNotEmpty &&
-                                            team['members'] != null;
-
-                                    if (!hasCompletedSignup) return false;
-
-                                    int verifiedCount = 0;
-                                    int totalCount = 1; // Leader
-                                    
-                                    // Count leader
-                                    if (team['leader']?['isVerified'] == true) {
-                                      verifiedCount++;
-                                    }
-                                    
-                                    // Count members
-                                    if (team['members'] != null) {
-                                      if (team['members'] is List) {
-                                        final membersList = team['members'] as List;
-                                        totalCount += membersList.length;
-                                        verifiedCount += membersList.where((m) => m['isVerified'] == true).length;
-                                      } else if (team['members'] is Map) {
-                                        totalCount++;
-                                        if (team['members']['isVerified'] == true) {
-                                          verifiedCount++;
-                                        }
-                                      }
-                                    }
-                                    
-                                    // All members checked in
-                                    return verifiedCount == totalCount && totalCount > 0;
-                                  }).length}',
-                                  style: TextStyle(
+                    Text(
+                                  '${_teams.where((team) => team['isVerified'] == true).length}',
+                      style: TextStyle(
                                     color: AppTheme.textPrimaryColor,
                                     fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                        fontWeight: FontWeight.bold,
                       ),
-                    ],
+                    ),
+                  ],
+                ),
+                    ),
                   ),
+                ),
+              ],
+            ),
                   SizedBox(height: MediaQuery.of(context).size.height * 0.01),
                   // Second row of stats
                   Row(
@@ -549,10 +516,10 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                       Expanded(
                         child: SizedBox(
                           height: MediaQuery.of(context).size.height * 0.12,
-                          child: GlassCard(
-                            child: Column(
+                child: GlassCard(
+                  child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
+                    children: [
                                 Row(
                                   children: [
                                     Icon(
@@ -564,10 +531,10 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                                     Expanded(
                                       child: Text(
                                         'Total Members',
-                                        style: TextStyle(
-                                          color: AppTheme.textSecondaryColor,
-                                          fontSize: 14,
-                                        ),
+                        style: TextStyle(
+                          color: AppTheme.textSecondaryColor,
+                          fontSize: 14,
+                        ),
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -575,27 +542,27 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                Text(
+                      Text(
                                   '${_teams.fold<int>(0, (sum, team) => sum + ((team['members']?.length ?? 0) + 1) as int)}',
-                                  style: TextStyle(
+                        style: TextStyle(
                                     color: AppTheme.textPrimaryColor,
                                     fontSize: 22,
                                     fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
                         ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
                       ),
                       SizedBox(width: MediaQuery.of(context).size.width * 0.02),
                       Expanded(
                         child: SizedBox(
                           height: MediaQuery.of(context).size.height * 0.12,
-                          child: GlassCard(
-                            child: Column(
+                child: GlassCard(
+                  child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
+                    children: [
                                 Row(
                                   children: [
                                     Icon(
@@ -617,9 +584,9 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  '${_teams.fold<int>(0, (sum, team) {
+                      const SizedBox(height: 8),
+                      Text(
+                                  '${_teams.where((team) => team['isVerified'] == true).fold<int>(0, (sum, team) {
                                     int checkedIn = 0;
                                     // Count leader if verified
                                     if (team['leader']?['isVerified'] == true) {
@@ -635,16 +602,16 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                                     }
                                     return sum + checkedIn;
                                   })}',
-                                  style: TextStyle(
-                                    color: AppTheme.textPrimaryColor,
+                        style: TextStyle(
+                          color: AppTheme.textPrimaryColor,
                                     fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                               ],
-                            ),
                           ),
                         ),
+                      ),
                       ),
                     ],
                   ),
@@ -670,10 +637,10 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                                     Expanded(
                                       child: Text(
                                         'Teams Started Check-in',
-                                        style: TextStyle(
-                                          color: AppTheme.textSecondaryColor,
-                                          fontSize: 14,
-                                        ),
+                        style: TextStyle(
+                          color: AppTheme.textSecondaryColor,
+                          fontSize: 14,
+                        ),
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -682,40 +649,7 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  '${_teams.where((team) {
-                                    // Check if team has completed signup
-                                    bool hasCompletedSignup = team['leader'] != null && 
-                                            team['leader'] is Map && 
-                                            (team['leader'] as Map).isNotEmpty &&
-                                            team['members'] != null;
-
-                                    if (!hasCompletedSignup) return false;
-
-                                    int verifiedCount = 0;
-                                    int totalCount = 1; // Leader
-                                    
-                                    // Count leader
-                                    if (team['leader']?['isVerified'] == true) {
-                                      verifiedCount++;
-                                    }
-                                    
-                                    // Count members
-                                    if (team['members'] != null) {
-                                      if (team['members'] is List) {
-                                        final membersList = team['members'] as List;
-                                        totalCount += membersList.length;
-                                        verifiedCount += membersList.where((m) => m['isVerified'] == true).length;
-                                      } else if (team['members'] is Map) {
-                                        totalCount++;
-                                        if (team['members']['isVerified'] == true) {
-                                          verifiedCount++;
-                                        }
-                                      }
-                                    }
-                                    
-                                    // Some but not all members checked in
-                                    return verifiedCount > 0 && verifiedCount < totalCount;
-                                  }).length}',
+                                  '0',
                                   style: TextStyle(
                                     color: AppTheme.textPrimaryColor,
                                     fontSize: 22,
@@ -758,47 +692,20 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  '${_teams.where((team) {
-                                    // Check if team has completed signup
-                                    bool hasCompletedSignup = team['leader'] != null && 
-                                            team['leader'] is Map && 
-                                            (team['leader'] as Map).isNotEmpty &&
-                                            team['members'] != null;
-
-                                    if (!hasCompletedSignup) return true;
-
-                                    int verifiedCount = 0;
-                                    
-                                    // Count leader
-                                    if (team['leader']?['isVerified'] == true) {
-                                      verifiedCount++;
-                                    }
-                                    
-                                    // Count members
-                                    if (team['members'] != null) {
-                                      if (team['members'] is List) {
-                                        verifiedCount += (team['members'] as List).where((m) => m['isVerified'] == true).length;
-                                      } else if (team['members'] is Map && team['members']['isVerified'] == true) {
-                                        verifiedCount++;
-                                      }
-                                    }
-                                    
-                                    // No members checked in
-                                    return verifiedCount == 0;
-                                  }).length}',
+                                  '${_teams.where((team) => team['isVerified'] != true).length}',
                                   style: TextStyle(
                                     color: AppTheme.textPrimaryColor,
                                     fontSize: 22,
                                     fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
+                  ),
+                ),
+              ],
+            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                              ),
+                            ],
+                          ),
                 ],
               ),
               
@@ -806,17 +713,17 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
               SizedBox(height: MediaQuery.of(context).size.height * 0.01),
               SizedBox(
                 height: MediaQuery.of(context).size.height * 0.12,
-                child: GlassCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
+                                  child: GlassCard(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(
                             'Check-in Progress',
-                            style: TextStyle(
-                              color: AppTheme.textPrimaryColor,
+                                    style: TextStyle(
+                                                  color: AppTheme.textPrimaryColor,
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
@@ -824,14 +731,14 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                           Text(
                             _teams.isEmpty ? '0%' : 
                               '${(_teams.where((team) => team['isVerified'] == true).length * 100 / _teams.length).round()}%',
-                            style: TextStyle(
+                                                  style: TextStyle(
                               color: AppTheme.accentColor,
                               fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
+                                                    fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                       const SizedBox(height: 8),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(10),
@@ -847,10 +754,10 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                       ),
                     ],
                   ),
-                ),
-              ),
-            ],
-          ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
         ),
       ),
     );

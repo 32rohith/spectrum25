@@ -23,111 +23,9 @@ class HomeTab extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Welcome Card
-            GlassCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Welcome, ${team.leader.name.split(' ')[0]}!',
-                    style: TextStyle(
-                      color: AppTheme.textPrimaryColor,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Team: ${team.teamName}',
-                    style: TextStyle(
-                      color: AppTheme.accentColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Status Pills
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: team.isVerified
-                              ? Colors.green.withOpacity(0.2)
-                              : AppTheme.errorColor.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: team.isVerified
-                                ? Colors.green.withOpacity(0.5)
-                                : AppTheme.errorColor.withOpacity(0.5),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              team.isVerified ? Icons.check_circle : Icons.error,
-                              color: team.isVerified
-                                  ? Colors.green
-                                  : AppTheme.errorColor,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              team.isVerified ? 'Verified' : 'Not Verified',
-                              style: TextStyle(
-                                color: team.isVerified
-                                    ? Colors.green
-                                    : AppTheme.errorColor,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppTheme.accentColor.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: AppTheme.accentColor.withOpacity(0.5),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.people,
-                              color: AppTheme.accentColor,
-                              size: 16,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              '${team.members.length + 1} Members',
-                              style: TextStyle(
-                                color: AppTheme.accentColor,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 24),
-            
-            // Announcement Section
+            // Spectrum Agenda
             Text(
-              'Announcements',
+              'Spectrum Agenda',
               style: TextStyle(
                 color: AppTheme.textPrimaryColor,
                 fontSize: 18,
@@ -136,270 +34,109 @@ class HomeTab extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             
-            // Announcement Cards
-            GlassCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withOpacity(0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.campaign,
-                          color: AppTheme.primaryColor,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Opening Ceremony',
-                              style: TextStyle(
-                                color: AppTheme.textPrimaryColor,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              '2 hours ago',
-                              style: TextStyle(
-                                color: AppTheme.textSecondaryColor,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'The opening ceremony will start at 10:00 AM in the Main Hall. All teams must be present.',
-                    style: TextStyle(
-                      color: AppTheme.textSecondaryColor,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 12),
-            
-            GlassCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.accentColor.withOpacity(0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.event,
-                          color: AppTheme.accentColor,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Workshop Schedule',
-                              style: TextStyle(
-                                color: AppTheme.textPrimaryColor,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              '5 hours ago',
-                              style: TextStyle(
-                                color: AppTheme.textSecondaryColor,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Check out the workshop schedule for today. We have sessions on ML, UI/UX, and Cloud Technologies.',
-                    style: TextStyle(
-                      color: AppTheme.textSecondaryColor,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 24),
-            
-            // Timeline Section
-            Text(
-              'Hackathon Timeline',
-              style: TextStyle(
-                color: AppTheme.textPrimaryColor,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            
-            // Timeline Card
             GlassCard(
               child: Column(
                 children: [
                   _buildTimelineItem(
+                    time: '8:30 AM',
+                    title: 'Reporting Time',
+                    description: 'For participants',
+                    isActive: true,
+                  ),
+                  _buildTimelineItem(
                     time: '10:00 AM',
-                    title: 'Opening Ceremony',
+                    title: 'Inauguration Ceremony',
                     description: 'Main Hall',
                     isActive: true,
                   ),
                   _buildTimelineItem(
-                    time: '11:30 AM',
-                    title: 'Hacking Begins',
-                    description: 'All Venues',
-                    isActive: true,
+                    time: '12:30 PM',
+                    title: 'Lunch',
+                    description: 'Provided by us',
+                    isActive: false,
+                    duration: '1 hour',
                   ),
                   _buildTimelineItem(
-                    time: '1:00 PM',
-                    title: 'Lunch',
-                    description: 'Food Court',
+                    time: '1:30 PM',
+                    title: 'Guest Speaker Session',
+                    description: 'IBM',
+                    isActive: false,
+                    duration: '2 hours',
+                  ),
+                  _buildTimelineItem(
+                    time: '5:00 PM',
+                    title: '2IM Speech',
+                    description: '',
+                    isActive: false,
+                    duration: '1 hour',
+                  ),
+                  _buildTimelineItem(
+                    time: '7:00 PM',
+                    title: 'Dinner',
+                    description: 'Provided by us',
+                    isActive: false,
+                    duration: '1 hour',
+                  ),
+                  _buildTimelineItem(
+                    time: '8:00 PM',
+                    title: 'Review 1',
+                    description: '',
+                    isActive: false,
+                    duration: '1 hour',
+                  ),
+                  _buildTimelineItem(
+                    time: '9:00 PM',
+                    title: 'Vertex Speech',
+                    description: '',
+                    isActive: false,
+                    duration: '1 hour',
+                  ),
+                  _buildTimelineItem(
+                    time: '11:00 PM',
+                    title: 'Blackbox AI Interview Selection',
+                    description: '',
                     isActive: false,
                   ),
                   _buildTimelineItem(
-                    time: '4:00 PM',
-                    title: 'Mentor Sessions',
-                    description: 'Conference Rooms',
+                    time: '12:00 AM',
+                    title: 'Tea/Coffee',
+                    description: 'Provided by us',
+                    isActive: false,
+                  ),
+                  _buildTimelineItem(
+                    time: '7:00 AM',
+                    title: 'Breakfast',
+                    description: 'Provided by us (12th April)',
+                    isActive: false,
+                  ),
+                  _buildTimelineItem(
+                    time: '9:00 AM',
+                    title: 'Judging Begins',
+                    description: '',
+                    isActive: false,
+                  ),
+                  _buildTimelineItem(
+                    time: '11:30 AM',
+                    title: 'Judging Ends',
+                    description: '',
+                    isActive: false,
+                  ),
+                  _buildTimelineItem(
+                    time: '12:00 PM',
+                    title: 'Result Announcement',
+                    description: '',
+                    isActive: false,
+                  ),
+                  _buildTimelineItem(
+                    time: '12:30 PM',
+                    title: 'Event Ends',
+                    description: '',
                     isActive: false,
                     isLast: true,
                   ),
                 ],
               ),
             ),
-            
-            const SizedBox(height: 24),
-            
-            // Quick Actions
-            Text(
-              'Quick Actions',
-              style: TextStyle(
-                color: AppTheme.textPrimaryColor,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            
-            Row(
-              children: [
-                Expanded(
-                  child: GlassCard(
-                    onTap: () {
-                      // Navigate to team details
-                      // TODO: Navigate to team details
-                    },
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.people,
-                          color: AppTheme.primaryColor,
-                          size: 32,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Team',
-                          style: TextStyle(
-                            color: AppTheme.textPrimaryColor,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: GlassCard(
-                    onTap: () {
-                      // Navigate to food
-                      // TODO: Navigate to food
-                    },
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.fastfood,
-                          color: AppTheme.accentColor,
-                          size: 32,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Food',
-                          style: TextStyle(
-                            color: AppTheme.textPrimaryColor,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: GlassCard(
-                    onTap: () {
-                      // Navigate to project submission
-                      // TODO: Navigate to project submission
-                    },
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.upload_file,
-                          color: Colors.orange,
-                          size: 32,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Submit',
-                          style: TextStyle(
-                            color: AppTheme.textPrimaryColor,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            
-            const SizedBox(height: 30),
           ],
         ),
       ),
@@ -411,6 +148,7 @@ class HomeTab extends StatelessWidget {
     required String title,
     required String description,
     required bool isActive,
+    String? duration,
     bool isLast = false,
   }) {
     return Row(
@@ -457,7 +195,7 @@ class HomeTab extends StatelessWidget {
             if (!isLast)
               Container(
                 width: 2,
-                height: 50,
+                height: 40,
                 color: isActive
                     ? AppTheme.accentColor.withOpacity(0.5)
                     : AppTheme.glassBorderColor,
@@ -479,15 +217,28 @@ class HomeTab extends StatelessWidget {
                   fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                description,
-                style: TextStyle(
-                  color: AppTheme.textSecondaryColor,
-                  fontSize: 14,
+              if (description.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: TextStyle(
+                    color: AppTheme.textSecondaryColor,
+                    fontSize: 14,
+                  ),
                 ),
-              ),
-              SizedBox(height: isLast ? 0 : 30),
+              ],
+              if (duration != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  duration,
+                  style: TextStyle(
+                    color: AppTheme.accentColor,
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+              SizedBox(height: isLast ? 0 : 20),
             ],
           ),
         ),
