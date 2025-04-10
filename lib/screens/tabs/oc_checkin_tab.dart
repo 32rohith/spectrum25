@@ -280,7 +280,7 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -293,97 +293,117 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
               ),
             ),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Verify and check in teams for the hackathon',
-                    style: TextStyle(
-                      color: AppTheme.textSecondaryColor,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-              ],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                // Use LayoutBuilder to get available width
+                return constraints.maxWidth < 300 
+                  ? Text(
+                      'Verify teams',
+                      style: TextStyle(
+                        color: AppTheme.textSecondaryColor,
+                        fontSize: 16,
+                      ),
+                    )
+                  : Text(
+                      'Verify and check in teams for the hackathon',
+                      style: TextStyle(
+                        color: AppTheme.textSecondaryColor,
+                        fontSize: 16,
+                      ),
+                    );
+              },
             ),
             const SizedBox(height: 16),
             
             // Stats Cards
-            Row(
-              children: [
-                Expanded(
-                  child: GlassCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.check_circle,
-                              color: AppTheme.accentColor,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Teams Checked In',
-                              style: TextStyle(
-                                color: AppTheme.textSecondaryColor,
-                                fontSize: 14,
+            Container(
+              height: 90,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GlassCard(
+                      padding: EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.check_circle,
+                                color: AppTheme.accentColor,
+                                size: 20,
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          // Count of verified teams
-                          '${_teams.where((team) => team['isVerified'] == true).length}',
-                          style: TextStyle(
-                            color: AppTheme.textPrimaryColor,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Teams Checked In',
+                                  style: TextStyle(
+                                    color: AppTheme.textSecondaryColor,
+                                    fontSize: 14,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 8),
+                          Text(
+                            // Count of verified teams
+                            '${_teams.where((team) => team['isVerified'] == true).length}',
+                            style: TextStyle(
+                              color: AppTheme.textPrimaryColor,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: GlassCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.groups,
-                              color: AppTheme.primaryColor,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Total Teams',
-                              style: TextStyle(
-                                color: AppTheme.textSecondaryColor,
-                                fontSize: 14,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: GlassCard(
+                      padding: EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.groups,
+                                color: AppTheme.primaryColor,
+                                size: 20,
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '${_teams.length}',
-                          style: TextStyle(
-                            color: AppTheme.textPrimaryColor,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Total Teams',
+                                  style: TextStyle(
+                                    color: AppTheme.textSecondaryColor,
+                                    fontSize: 14,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 8),
+                          Text(
+                            '${_teams.length}',
+                            style: TextStyle(
+                              color: AppTheme.textPrimaryColor,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             
             // Check-in Progress
@@ -437,6 +457,7 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                 margin: const EdgeInsets.only(top: 16),
                 child: GlassCard(
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       const SizedBox(height: 8),
                       Text(
@@ -467,7 +488,7 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                           child: QrImageView(
                             data: _generateQRData(),
                             version: QrVersions.auto,
-                            size: 200,
+                            size: MediaQuery.of(context).size.width > 600 ? 250 : 180,
                             backgroundColor: Colors.white,
                             foregroundColor: Colors.black,
                           ),
@@ -494,6 +515,7 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                 margin: const EdgeInsets.only(top: 16),
                 child: GlassCard(
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       const SizedBox(height: 8),
                       Text(
@@ -506,7 +528,7 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                       ),
                       const SizedBox(height: 16),
                       SizedBox(
-                        height: 250,
+                        height: MediaQuery.of(context).size.width > 600 ? 300 : 200,
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(16),
                           child: MobileScanner(
@@ -541,6 +563,7 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
             Row(
               children: [
                 Expanded(
+                  flex: 3,
                   child: TextField(
                     controller: _searchController,
                     onChanged: _filterTeams,
@@ -559,44 +582,52 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                     style: TextStyle(color: AppTheme.textPrimaryColor),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 // QR Generate Button
-                ElevatedButton(
-                  onPressed: _toggleQRCode,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _showQRCode ? AppTheme.errorColor : AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.all(16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                Container(
+                  width: 48,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: _toggleQRCode,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _showQRCode ? AppTheme.errorColor : AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                  ),
-                  child: Icon(
-                    _showQRCode ? Icons.close : Icons.qr_code,
-                    color: Colors.white,
+                    child: Icon(
+                      _showQRCode ? Icons.close : Icons.qr_code,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 // Scan QR Button
-                ElevatedButton(
-                  onPressed: _isScanning ? () {
-                    setState(() {
-                      _isScanning = false;
-                      _scannerController?.dispose();
-                      _scannerController = null;
-                    });
-                  } : _startScanner,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _isScanning ? AppTheme.errorColor : AppTheme.accentColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.all(16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                Container(
+                  width: 48,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: _isScanning ? () {
+                      setState(() {
+                        _isScanning = false;
+                        _scannerController?.dispose();
+                        _scannerController = null;
+                      });
+                    } : _startScanner,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _isScanning ? AppTheme.errorColor : AppTheme.accentColor,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                  ),
-                  child: Icon(
-                    _isScanning ? Icons.close : Icons.qr_code_scanner,
-                    color: Colors.white,
+                    child: Icon(
+                      _isScanning ? Icons.close : Icons.qr_code_scanner,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ],
@@ -663,14 +694,18 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                                           Row(
                                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                             children: [
-                                              Text(
-                                                team['name'],
-                                                style: TextStyle(
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: AppTheme.textPrimaryColor,
+                                              Expanded(
+                                                child: Text(
+                                                  team['name'],
+                                                  style: TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: AppTheme.textPrimaryColor,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
                                                 ),
                                               ),
+                                              const SizedBox(width: 8),
                                               Container(
                                                 padding: const EdgeInsets.symmetric(
                                                   horizontal: 8,
@@ -985,9 +1020,13 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
       title: Text(
         widget.teamName, 
         style: TextStyle(color: AppTheme.textPrimaryColor),
+        overflow: TextOverflow.ellipsis,
       ),
       content: Container(
         width: double.maxFinite,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _errorMessage != null
@@ -1053,11 +1092,14 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
                                         children: [
                                           Row(
                                             children: [
-                                              Text(
-                                                member['name'] ?? 'Unknown',
-                                                style: TextStyle(
-                                                  color: AppTheme.textPrimaryColor,
-                                                  fontWeight: FontWeight.bold,
+                                              Expanded(
+                                                child: Text(
+                                                  member['name'] ?? 'Unknown',
+                                                  style: TextStyle(
+                                                    color: AppTheme.textPrimaryColor,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
                                                 ),
                                               ),
                                               const SizedBox(width: 8),
@@ -1092,6 +1134,7 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
                                               color: AppTheme.textSecondaryColor,
                                               fontSize: 12,
                                             ),
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                           Text(
                                             'Phone: ${member['phone'] ?? 'Not provided'}',
@@ -1099,6 +1142,7 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
                                               color: AppTheme.textSecondaryColor,
                                               fontSize: 12,
                                             ),
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                         ],
                                       ),
