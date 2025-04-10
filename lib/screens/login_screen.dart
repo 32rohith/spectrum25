@@ -260,10 +260,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: AppTheme.errorColor.withOpacity(0.1),
+                          color: Color.fromRGBO(
+                            AppTheme.errorColor.red,
+                            AppTheme.errorColor.green,
+                            AppTheme.errorColor.blue,
+                            0.1,
+                          ),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: AppTheme.errorColor.withOpacity(0.5),
+                            color: Color.fromRGBO(
+                              AppTheme.errorColor.red, 
+                              AppTheme.errorColor.green, 
+                              AppTheme.errorColor.blue,
+                              0.5,
+                            ),
                           ),
                         ),
                         child: Text(

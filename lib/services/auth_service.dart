@@ -7,8 +7,8 @@ import 'dart:developer' as developer;
 // Extension to capitalize the first letter of a string
 extension StringExtension on String {
   String capitalize() {
-    if (this.isEmpty) return this;
-    return this[0].toUpperCase() + this.substring(1);
+    if (isEmpty) return this;
+    return this[0].toUpperCase() + substring(1);
   }
 }
 
@@ -72,7 +72,7 @@ class AuthService {
       
       // Create leader account in Firebase Auth
       developer.log('Creating leader account in Firebase Auth');
-      final leaderUserCredential = await _auth.createUserWithEmailAndPassword(
+      await _auth.createUserWithEmailAndPassword(
         email: leaderEmail,
         password: leaderPassword,
       );

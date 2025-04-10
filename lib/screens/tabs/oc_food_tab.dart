@@ -160,11 +160,11 @@ class _OCFoodTabState extends State<OCFoodTab> {
       }
       
       // Check if it's a meal QR code
-      if (qrJson['type'] != 'meal_qr') {
+      if (qrJson['type'] != 'member_qr') {
         setState(() {
           _lastScanResult = {
             'success': false,
-            'message': 'Invalid QR code: This is not a meal QR code.',
+            'message': 'Invalid QR code: This is not a member QR code.',
           };
           _isLoading = false;
           _isScanning = false;
@@ -177,7 +177,7 @@ class _OCFoodTabState extends State<OCFoodTab> {
       }
       
       // Process the QR code
-      final result = await _mealService.processMealQRScan(qrCode);
+      final result = await _mealService.processMemberQRScan(qrCode);
       
       setState(() {
         _lastScanResult = result;
@@ -764,10 +764,21 @@ class _OCFoodTabState extends State<OCFoodTab> {
                                 const SizedBox(height: 16),
                                 Center(
                                   child: Text(
-                                    'Scanning for meal QR codes...',
+                                    'Scanning for member QR codes...',
                                     style: TextStyle(
                                       color: AppTheme.textSecondaryColor,
                                     ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Center(
+                                  child: Text(
+                                    'Ask members to show their permanent QR code',
+                                    style: TextStyle(
+                                      color: AppTheme.textSecondaryColor,
+                                      fontSize: 12,
+                                    ),
+                                    textAlign: TextAlign.center,
                                   ),
                                 ),
                                 const SizedBox(height: 16),

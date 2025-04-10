@@ -88,52 +88,32 @@ class MealService {
     return json.encode(qrData);
   }
   
-  // Generate a unique QR code for a member and meal without requiring authentication
-  String generateMealQRCodeWithoutAuth(String memberName, String teamName, String mealId) {
+  // Generate QR code using stored secret if available
+  String generateQRCode(String memberName, String teamName, {String? qrSecret}) {
     final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-    final secret = 'SPECTRUM_MEALS_2025'; // Secret key for QR code generation
+    final secret = qrSecret ?? 'SPECTRUM_MEALS_2025'; // Use provided secret or default
     
-    // Create a unique string by combining member name, team name, meal ID, timestamp, and secret
-    final data = '$memberName:$teamName:$mealId:$timestamp:$secret';
+    // Create a unique string by combining member name, team name, timestamp, and secret
+    final data = '$memberName:$teamName:$secret';
     
     // Generate a SHA-256 hash for security
     final bytes = utf8.encode(data);
     final hash = sha256.convert(bytes).toString();
     
     // Generate a unique ID for this QR code
-    final qrId = '$memberName-$mealId-${timestamp.substring(timestamp.length - 6)}';
+    final qrId = '$memberName-${timestamp.substring(timestamp.length - 6)}';
     
     // Create the QR data
     final qrData = {
       'qrId': qrId,
       'memberName': memberName,
       'teamName': teamName,
-      'mealId': mealId,
       'timestamp': timestamp,
       'hash': hash,
-      'type': 'meal_qr',
+      'type': 'member_qr',
     };
     
-    // Store this QR code in Firestore for validation
-    _storeQRCode(qrData);
-    
     return json.encode(qrData);
-  }
-  
-  // Store QR code data in Firestore
-  Future<void> _storeQRCode(Map<String, dynamic> qrData) async {
-    try {
-      final String qrId = qrData['qrId'];
-      await _firestore.collection('mealQRCodes').doc(qrId).set({
-        ...qrData,
-        'isUsed': false,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-      developer.log('QR code stored successfully: $qrId');
-    } catch (e) {
-      developer.log('Error storing QR code: $e');
-      // Don't throw an exception here, as we want the QR to be generated even if storage fails
-    }
   }
   
   // Save member info to Firestore
@@ -208,236 +188,182 @@ class MealService {
     }
   }
   
-  // Process a meal QR code scan
-  Future<Map<String, dynamic>> processMealQRScan(String qrData) async {
+  // Process a member QR code scan
+  Future<Map<String, dynamic>> processMemberQRScan(String qrData) async {
     try {
       // Decode QR data
       Map<String, dynamic> qrJson = json.decode(qrData);
       
-      // Verify this is a meal QR code
-      if (qrJson['type'] != 'meal_qr') {
+      // Verify this is a member QR code
+      if (qrJson['type'] != 'member_qr') {
         return {
           'success': false,
-          'message': 'Invalid QR code. This is not a meal QR code.',
+          'message': 'Invalid QR code: Not a member QR code',
         };
       }
       
-      // Check if this is the old format or new format QR code
-      if (qrJson.containsKey('qrId')) {
-        // New format
-        return await _processNewFormatQR(qrJson);
-      } else if (qrJson.containsKey('memberId')) {
-        // Old format
-        return await _processOldFormatQR(qrJson);
-      } else {
+      // Extract member data from QR code
+      final String memberName = qrJson['memberName'];
+      final String teamName = qrJson['teamName'];
+      
+      // Check if we have an active meal
+      final activeMeal = await getActiveMeal();
+      if (activeMeal == null) {
         return {
           'success': false,
-          'message': 'Invalid QR code format.',
+          'message': 'No active meal at this time',
         };
       }
+      
+      // Find the member in the database
+      final membersSnapshot = await _firestore
+          .collection('members')
+          .where('name', isEqualTo: memberName)
+          .where('teamName', isEqualTo: teamName)
+          .limit(1)
+          .get();
+      
+      if (membersSnapshot.docs.isEmpty) {
+        return {
+          'success': false,
+          'message': 'Member not found: $memberName from $teamName',
+        };
+      }
+      
+      final memberDoc = membersSnapshot.docs.first;
+      final memberId = memberDoc.id;
+      final memberData = memberDoc.data();
+      
+      // Validate QR authenticity using hash if needed
+      // This is a security feature that could be implemented to verify 
+      // the QR code hasn't been tampered with
+      
+      // Check if member has already consumed this meal
+      bool hasConsumed = false;
+      
+      // Check which meal is active and if it has been consumed
+      switch (activeMeal.id) {
+        case 'breakfast':
+          hasConsumed = memberData['isBreakfastConsumed'] == true;
+          break;
+        case 'lunch':
+          hasConsumed = memberData['isLunchConsumed'] == true;
+          break;
+        case 'dinner':
+          hasConsumed = memberData['isDinnerConsumed'] == true;
+          break;
+        case 'test_meal':
+          hasConsumed = memberData['isTestMealConsumed'] == true;
+          break;
+      }
+      
+      if (hasConsumed) {
+        return {
+          'success': false,
+          'isSecondAttempt': true,
+          'message': 'Member $memberName has already consumed this meal: ${activeMeal.name}',
+          'memberName': memberName,
+          'teamName': teamName,
+          'mealName': activeMeal.name,
+        };
+      }
+      
+      // Record consumption in mealConsumptions collection
+      final consumptionId = '$memberId-${activeMeal.id}';
+      await _firestore.collection('mealConsumptions').doc(consumptionId).set({
+        'id': consumptionId,
+        'memberId': memberId,
+        'memberName': memberName,
+        'teamId': memberData['teamId'] ?? '',
+        'teamName': teamName,
+        'mealId': activeMeal.id,
+        'mealName': activeMeal.name,
+        'timestamp': FieldValue.serverTimestamp(),
+        'isConsumed': true,
+      });
+      
+      // Update meal flags in member document
+      bool isBreakfast = false;
+      bool isLunch = false;
+      bool isDinner = false;
+      bool isTest = false;
+      
+      switch (activeMeal.id) {
+        case 'breakfast':
+          isBreakfast = true;
+          break;
+        case 'lunch':
+          isLunch = true;
+          break;
+        case 'dinner':
+          isDinner = true;
+          break;
+        case 'test_meal':
+          isTest = true;
+          break;
+      }
+      
+      // Update member document with the corresponding meal flag
+      await _firestore.collection('members').doc(memberId).update({
+        if (isBreakfast) 'isBreakfastConsumed': true,
+        if (isLunch) 'isLunchConsumed': true,
+        if (isDinner) 'isDinnerConsumed': true,
+        if (isTest) 'isTestMealConsumed': true,
+      });
+      
+      return {
+        'success': true,
+        'message': 'Meal recorded successfully: ${activeMeal.name}',
+        'memberName': memberName,
+        'teamName': teamName,
+        'mealName': activeMeal.name,
+      };
     } catch (e) {
-      developer.log('Error processing meal QR scan: $e');
+      developer.log('Error processing member QR scan: $e');
       return {
         'success': false,
         'message': 'Error processing QR code: $e',
       };
     }
   }
-
-  // Process new format QR code
-  Future<Map<String, dynamic>> _processNewFormatQR(Map<String, dynamic> qrJson) async {
-    final String qrId = qrJson['qrId'];
-    final String memberName = qrJson['memberName'];
-    final String teamName = qrJson['teamName'];
-    final String mealId = qrJson['mealId'];
+  
+  // Generate QR code and update member document
+  Future<String> generateAndStoreMemberQR(String memberId, String memberName, String teamName) async {
+    // Generate a unique QR secret
+    final qrSecret = _generateQRSecret();
     
-    // Check if this QR code has been used before
-    final qrDoc = await _firestore.collection('mealQRCodes').doc(qrId).get();
-    if (qrDoc.exists) {
-      final bool isUsed = qrDoc.data()?['isUsed'] ?? false;
-      if (isUsed) {
-        return {
-          'success': false,
-          'message': 'This QR code has already been used.',
-          'memberName': memberName,
-          'teamName': teamName,
-          'isSecondAttempt': true,
-        };
-      }
-    }
-    
-    // Check if the meal is active
-    final mealDoc = await _firestore.collection('meals').doc(mealId).get();
-    if (!mealDoc.exists) {
-      return {
-        'success': false,
-        'message': 'Meal not found.',
-      };
-    }
-    
-    final meal = Meal.fromJson(mealDoc.data()!);
-    final now = DateTime.now();
-    
-    if (!(now.isAfter(meal.startTime) && now.isBefore(meal.endTime))) {
-      return {
-        'success': false,
-        'message': 'This meal is not currently being served.',
-        'mealName': meal.name,
-        'startTime': meal.startTime,
-        'endTime': meal.endTime,
-      };
-    }
-    
-    // Check if this member has already consumed this meal
-    final consumptionSnapshot = await _firestore
-        .collection('mealConsumptions')
-        .where('memberName', isEqualTo: memberName)
-        .where('teamName', isEqualTo: teamName)
-        .where('mealId', isEqualTo: mealId)
-        .where('isConsumed', isEqualTo: true)
-        .get();
-    
-    if (consumptionSnapshot.docs.isNotEmpty) {
-      final lastConsumption = MealConsumption.fromJson(
-        consumptionSnapshot.docs.first.data()
-      );
-      
-      return {
-        'success': false,
-        'message': 'This person has already consumed this meal.',
-        'previousConsumption': lastConsumption.toJson(),
-        'mealName': meal.name,
-        'memberName': memberName,
-        'teamName': teamName,
-        'isSecondAttempt': true,
-      };
-    }
-    
-    // Record the meal consumption
-    final consumptionId = _firestore.collection('mealConsumptions').doc().id;
-    final consumption = MealConsumption(
-      id: consumptionId,
-      memberId: qrId, // Use QR ID as member ID
-      memberName: memberName,
-      teamId: teamName, // Use team name as team ID
-      teamName: teamName,
-      mealId: mealId,
-      mealName: meal.name,
-      timestamp: now,
-      isConsumed: true,
-    );
-    
-    await _firestore.collection('mealConsumptions').doc(consumptionId).set(
-      consumption.toJson()
-    );
-    
-    // Mark QR code as used
-    await _firestore.collection('mealQRCodes').doc(qrId).update({
-      'isUsed': true,
-      'usedAt': FieldValue.serverTimestamp(),
+    // Update member document with the QR secret
+    await _firestore.collection('members').doc(memberId).update({
+      'qrSecret': qrSecret,
     });
     
-    return {
-      'success': true,
-      'message': 'Meal recorded successfully.',
-      'memberName': memberName,
-      'teamName': teamName,
-      'mealName': meal.name,
-    };
+    // Generate QR code using the member information and the secret
+    return generateQRCode(memberName, teamName, qrSecret: qrSecret);
   }
   
-  // Process old format QR code
-  Future<Map<String, dynamic>> _processOldFormatQR(Map<String, dynamic> qrJson) async {
-    final String memberId = qrJson['memberId'];
-    final String mealId = qrJson['mealId'];
-    
-    // Check if the meal is active
-    final mealDoc = await _firestore.collection('meals').doc(mealId).get();
-    if (!mealDoc.exists) {
-      return {
-        'success': false,
-        'message': 'Meal not found.',
-      };
-    }
-    
-    final meal = Meal.fromJson(mealDoc.data()!);
-    final now = DateTime.now();
-    
-    if (!(now.isAfter(meal.startTime) && now.isBefore(meal.endTime))) {
-      return {
-        'success': false,
-        'message': 'This meal is not currently being served.',
-        'mealName': meal.name,
-        'startTime': meal.startTime,
-        'endTime': meal.endTime,
-      };
-    }
-    
-    // Check if this member has already consumed this meal
-    final consumptionSnapshot = await _firestore
-        .collection('mealConsumptions')
-        .where('memberId', isEqualTo: memberId)
-        .where('mealId', isEqualTo: mealId)
-        .where('isConsumed', isEqualTo: true)
-        .get();
-    
-    if (consumptionSnapshot.docs.isNotEmpty) {
-      final lastConsumption = MealConsumption.fromJson(
-        consumptionSnapshot.docs.first.data()
-      );
+  // Get a member's stored QR secret
+  Future<String?> getMemberQRSecret(String memberId) async {
+    try {
+      final memberDoc = await _firestore.collection('members').doc(memberId).get();
+      if (!memberDoc.exists) {
+        return null;
+      }
       
-      return {
-        'success': false,
-        'message': 'This person has already consumed this meal.',
-        'previousConsumption': lastConsumption.toJson(),
-        'mealName': meal.name,
-        'isSecondAttempt': true,
-      };
+      final memberData = memberDoc.data()!;
+      return memberData['qrSecret'] as String?;
+    } catch (e) {
+      developer.log('Error getting member QR secret: $e');
+      return null;
     }
+  }
+  
+  // Generate QR code for a member using their stored secret
+  Future<String> generateQRWithStoredSecret(String memberId, String memberName, String teamName) async {
+    // Get stored QR secret
+    final qrSecret = await getMemberQRSecret(memberId);
     
-    // Get member details
-    final memberDoc = await _firestore.collection('members').doc(memberId).get();
-    if (!memberDoc.exists) {
-      return {
-        'success': false,
-        'message': 'Member not found.',
-      };
-    }
-    
-    final memberData = memberDoc.data()!;
-    final teamId = memberData['teamId'] ?? '';
-    final memberName = memberData['name'] ?? 'Unknown';
-    
-    // Get team details
-    final teamDoc = await _firestore.collection('teams').doc(teamId).get();
-    final teamData = teamDoc.exists ? teamDoc.data()! : {'teamName': 'Unknown Team'};
-    final teamName = teamData['teamName'] ?? teamData['name'] ?? 'Unknown Team';
-    
-    // Record the meal consumption
-    final consumptionId = _firestore.collection('mealConsumptions').doc().id;
-    final consumption = MealConsumption(
-      id: consumptionId,
-      memberId: memberId,
-      memberName: memberName,
-      teamId: teamId,
-      teamName: teamName,
-      mealId: mealId,
-      mealName: meal.name,
-      timestamp: now,
-      isConsumed: true,
-    );
-    
-    await _firestore.collection('mealConsumptions').doc(consumptionId).set(
-      consumption.toJson()
-    );
-    
-    return {
-      'success': true,
-      'message': 'Meal recorded successfully.',
-      'memberName': memberName,
-      'teamName': teamName,
-      'mealName': meal.name,
-    };
+    // Generate QR code using the secret if available
+    return generateQRCode(memberName, teamName, qrSecret: qrSecret);
   }
   
   // Get meal consumption statistics
@@ -528,5 +454,159 @@ class MealService {
       developer.log('Error checking if member has consumed meal: $e');
       return false; // Default to not consumed in case of error
     }
+  }
+  
+  // Process a meal QR code scan
+  Future<Map<String, dynamic>> processMealQRScan(String qrData) async {
+    try {
+      // Decode QR data
+      Map<String, dynamic> qrJson = json.decode(qrData);
+      
+      // Verify this is a meal QR code
+      if (qrJson['type'] != 'meal_qr') {
+        return {
+          'success': false,
+          'message': 'Invalid QR code: Not a meal QR code',
+        };
+      }
+      
+      // Check if we have an active meal
+      final activeMeal = await getActiveMeal();
+      if (activeMeal == null) {
+        return {
+          'success': false,
+          'message': 'No active meal at this time',
+        };
+      }
+      
+      // Extract data from QR code
+      final String memberId = qrJson['memberId'];
+      final String mealId = qrJson['mealId'];
+      
+      // Verify the meal ID matches the active meal
+      if (mealId != activeMeal.id) {
+        return {
+          'success': false,
+          'message': 'This QR code is for a different meal: ${mealId}',
+        };
+      }
+      
+      // Check if already consumed
+      final memberDoc = await _firestore.collection('members').doc(memberId).get();
+      if (!memberDoc.exists) {
+        return {
+          'success': false,
+          'message': 'Member not found',
+        };
+      }
+      
+      final memberData = memberDoc.data()!;
+      final String memberName = memberData['name'] ?? 'Unknown';
+      final String teamName = memberData['teamName'] ?? 'Unknown';
+      final String teamId = memberData['teamId'] ?? '';
+      
+      // Check if member has already consumed this meal
+      final existingConsumption = await hasMemberConsumedMeal(memberId, activeMeal.id);
+      if (existingConsumption) {
+        return {
+          'success': false,
+          'isSecondAttempt': true,
+          'message': 'Member $memberName has already consumed this meal',
+          'memberName': memberName,
+          'teamName': teamName,
+        };
+      }
+      
+      // Record the consumption
+      final consumptionId = '$memberId-${activeMeal.id}';
+      await _firestore.collection('mealConsumptions').doc(consumptionId).set({
+        'id': consumptionId,
+        'memberId': memberId,
+        'memberName': memberName,
+        'teamId': teamId,
+        'teamName': teamName,
+        'mealId': activeMeal.id,
+        'mealName': activeMeal.name,
+        'timestamp': FieldValue.serverTimestamp(),
+        'isConsumed': true,
+      });
+      
+      // Update meal flags in member document based on meal type
+      bool isBreakfast = false;
+      bool isLunch = false;
+      bool isDinner = false;
+      bool isTest = false;
+      
+      switch (activeMeal.id) {
+        case 'breakfast':
+          isBreakfast = true;
+          break;
+        case 'lunch':
+          isLunch = true;
+          break;
+        case 'dinner':
+          isDinner = true;
+          break;
+        case 'test_meal':
+          isTest = true;
+          break;
+      }
+      
+      // Update member document
+      await updateMemberDocument(
+        memberId,
+        isTest: isTest,
+        isLunch: isLunch,
+        isBreakfast: isBreakfast,
+        isDinner: isDinner
+      );
+      
+      return {
+        'success': true,
+        'message': 'Meal recorded successfully',
+        'memberName': memberName,
+        'teamName': teamName,
+        'mealName': activeMeal.name,
+      };
+    } catch (e) {
+      developer.log('Error processing meal QR scan: $e');
+      return {
+        'success': false,
+        'message': 'Error processing QR code: $e',
+      };
+    }
+  }
+  
+  // Update member document with meal status or QR secret
+  Future<void> updateMemberDocument(
+    String memberId, {
+    bool? isBreakfast,
+    bool? isLunch,
+    bool? isDinner,
+    bool? isTest,
+    String? qrSecret,
+  }) async {
+    try {
+      final memberRef = _firestore.collection('members').doc(memberId);
+      final Map<String, dynamic> updateData = {};
+      
+      if (isBreakfast != null) updateData['isBreakfastConsumed'] = isBreakfast;
+      if (isLunch != null) updateData['isLunchConsumed'] = isLunch;
+      if (isDinner != null) updateData['isDinnerConsumed'] = isDinner;
+      if (isTest != null) updateData['isTestMealConsumed'] = isTest;
+      if (qrSecret != null) updateData['qrSecret'] = qrSecret;
+      
+      await memberRef.update(updateData);
+    } catch (e) {
+      developer.log('Error updating member document: $e');
+      throw Exception('Failed to update member document: $e');
+    }
+  }
+  
+  // Generate a secure QR secret
+  String _generateQRSecret() {
+    final Random random = Random.secure();
+    final List<int> values = List<int>.generate(32, (i) => random.nextInt(256));
+    return base64Url.encode(values);
   }
 } 

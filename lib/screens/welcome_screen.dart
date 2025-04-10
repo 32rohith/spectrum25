@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 import '../theme/app_theme.dart';
-import '../utils/glass_morphism.dart';
 import '../widgets/common_widgets.dart';
 import 'team_leader_signup.dart';
 import 'login_screen.dart';
 import 'oc_login_screen.dart';
-import 'package:flutter/rendering.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -19,7 +17,6 @@ class WelcomeScreen extends StatelessWidget {
     final double screenHeight = screenSize.height;
     
     // Calculate responsive sizes
-    final double titleFontSize = screenWidth * 0.11 > 40 ? 40 : screenWidth * 0.11;
     final double subtitleFontSize = screenWidth * 0.055 > 22 ? 22 : screenWidth * 0.055;
     final double cardIconSize = screenWidth * 0.07 > 28 ? 28 : screenWidth * 0.07;
     final double cardTitleSize = screenWidth * 0.045 > 18 ? 18 : screenWidth * 0.045;

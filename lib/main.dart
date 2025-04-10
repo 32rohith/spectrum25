@@ -1,13 +1,10 @@
-import 'dart:io';
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:path_provider/path_provider.dart';
+import 'dart:developer' as developer;
 import 'firebase_options.dart';
 import 'theme/app_theme.dart';
-import 'models/team.dart';
 import 'screens/welcome_screen.dart';
 
 // Initialize path_provider plugin to ensure it's available for google_fonts
@@ -15,9 +12,9 @@ Future<void> _initPathProvider() async {
   try {
     // Call any path_provider method to force plugin registration
     await getApplicationSupportDirectory();
-    print('Path provider initialized successfully');
+    developer.log('Path provider initialized successfully');
   } catch (e) {
-    print('Error initializing path provider: $e');
+    developer.log('Error initializing path provider: $e');
   }
 }
 
@@ -27,9 +24,9 @@ Future<void> initializeFirebase() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    print('Firebase initialized successfully');
+    developer.log('Firebase initialized successfully');
   } catch (e) {
-    print('Error initializing Firebase: $e');
+    developer.log('Error initializing Firebase: $e');
     // Don't rethrow so the app can continue to function
   }
 }

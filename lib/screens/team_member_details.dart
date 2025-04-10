@@ -45,7 +45,7 @@ class _TeamMemberDetailsScreenState extends State<TeamMemberDetailsScreen> {
     for (int i = 0; i < _minMembers; i++) {
       _memberForms.add(MemberForm(
         index: i,
-        onRemove: _removeMemberForm,
+        onRemove: _removeMember,
         deviceOptions: _deviceOptions,
       ));
     }
@@ -67,20 +67,21 @@ class _TeamMemberDetailsScreenState extends State<TeamMemberDetailsScreen> {
       setState(() {
         _memberForms.add(MemberForm(
           index: _memberForms.length,
-          onRemove: _removeMemberForm,
+          onRemove: _removeMember,
           deviceOptions: _deviceOptions,
         ));
       });
     }
   }
 
-  void _removeMemberForm(int index) {
-    if (_memberForms.length > _minMembers) {
+  void _removeMember(int index) {
+    if (_memberForms.length > 1) {
       setState(() {
         _memberForms.removeAt(index);
         // Update indices for remaining forms
         for (int i = 0; i < _memberForms.length; i++) {
-          _memberForms[i].updateIndex(i);
+          // Replace with new instance with updated index
+          _memberForms[i] = MemberForm.withNewIndex(_memberForms[i], i);
         }
       });
     }
@@ -462,23 +463,31 @@ class _TeamMemberDetailsScreenState extends State<TeamMemberDetailsScreen> {
 }
 
 class MemberForm extends StatefulWidget {
-  int index;
+  final int index;
   final Function(int) onRemove;
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final List<String> deviceOptions;
-  String _selectedDevice = 'Android';
-
+  final String initialDevice;
+  
+  // Store current values in the state
   MemberForm({
     super.key,
     required this.index,
     required this.onRemove,
     required this.deviceOptions,
+    this.initialDevice = 'Android',
   });
-
-  void updateIndex(int newIndex) {
-    index = newIndex;
+  
+  // Use a static method to create a new form with updated index
+  static MemberForm withNewIndex(MemberForm oldForm, int newIndex) {
+    return MemberForm(
+      index: newIndex,
+      onRemove: oldForm.onRemove,
+      deviceOptions: oldForm.deviceOptions,
+      initialDevice: oldForm.getMember().device,
+    );
   }
 
   void dispose() {
@@ -492,7 +501,7 @@ class MemberForm extends StatefulWidget {
       name: _nameController.text.trim(),
       email: _emailController.text.trim(),
       phone: _phoneController.text.trim(),
-      device: _selectedDevice,
+      device: initialDevice, // Use the initial device value
     );
   }
 
@@ -502,6 +511,13 @@ class MemberForm extends StatefulWidget {
 
 class _MemberFormState extends State<MemberForm> {
   bool _isExpanded = false;
+  late String _selectedDevice;
+  
+  @override
+  void initState() {
+    super.initState();
+    _selectedDevice = widget.initialDevice;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -634,7 +650,7 @@ class _MemberFormState extends State<MemberForm> {
                     child: DropdownButton<String>(
                       dropdownColor: AppTheme.cardColor,
                       isExpanded: true,
-                      value: widget._selectedDevice,
+                      value: _selectedDevice,
                       icon: Icon(
                         Icons.arrow_drop_down,
                         color: AppTheme.textSecondaryColor,
@@ -647,7 +663,7 @@ class _MemberFormState extends State<MemberForm> {
                       ),
                       onChanged: (String? newValue) {
                         setState(() {
-                          widget._selectedDevice = newValue!;
+                          _selectedDevice = newValue!;
                         });
                       },
                       items: widget.deviceOptions
