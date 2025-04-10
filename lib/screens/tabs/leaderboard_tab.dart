@@ -41,17 +41,14 @@ class LeaderboardTab extends StatelessWidget {
             child: Column(
               children: [
                 // Top 3 Teams
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    if (topThree.length > 1)
-                      _buildTopThreeCard(topThree[1], 2),
-                    if (topThree.isNotEmpty)
-                      _buildTopThreeCard(topThree[0], 1, isFirst: true),
-                    if (topThree.length > 2)
-                      _buildTopThreeCard(topThree[2], 3),
-                  ],
-                ),
+                if (topThree.isNotEmpty)
+                  _buildTopThreeCard(topThree[0], 1, isFirst: true),
+                const SizedBox(height: 16),
+                if (topThree.length > 1)
+                  _buildTopThreeCard(topThree[1], 2),
+                const SizedBox(height: 16),
+                if (topThree.length > 2)
+                  _buildTopThreeCard(topThree[2], 3),
                 const SizedBox(height: 32),
                 // Remaining Teams
                 GlassCard(
@@ -77,8 +74,9 @@ class LeaderboardTab extends StatelessWidget {
     ];
 
     return Container(
-      width: isFirst ? 160 : 140,
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 24),
       decoration: BoxDecoration(
         color: AppTheme.cardColor,
         borderRadius: BorderRadius.circular(16),
@@ -87,25 +85,25 @@ class LeaderboardTab extends StatelessWidget {
           width: 2,
         ),
       ),
-      child: Column(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
           Text(
             '#$position',
             style: TextStyle(
               color: colors[position - 1],
-              fontSize: 24,
+              fontSize: isFirst ? 32 : 28,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(width: 16),
           Text(
             team.teamName,
             style: TextStyle(
               color: AppTheme.textPrimaryColor,
-              fontSize: 18,
+              fontSize: isFirst ? 28 : 24,
               fontWeight: FontWeight.bold,
             ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -114,8 +112,9 @@ class LeaderboardTab extends StatelessWidget {
 
   Widget _buildTeamRow(LeaderboardEntry team) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
           Text(
             '#${team.rank}',
