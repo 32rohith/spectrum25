@@ -399,30 +399,30 @@ class _ProjectSubmissionTabState extends State<ProjectSubmissionTab> {
               const SizedBox(height: 20),
               
               // Actions
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      // Open submission URL
-                      // TODO: Implement URL launcher
-                    },
-                    icon: const Icon(Icons.open_in_new),
-                    label: const Text('View Repository'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.accentColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              // Row(
+              //   mainAxisAlignment: MainAxisAlignment.center,
+              //   children: [
+              //     ElevatedButton.icon(
+              //       onPressed: () {
+              //         // Open submission URL
+              //         // TODO: Implement URL launcher
+              //       },
+              //       icon: const Icon(Icons.open_in_new),
+              //       label: const Text('View Repository'),
+              //       style: ElevatedButton.styleFrom(
+              //         backgroundColor: AppTheme.accentColor,
+              //         foregroundColor: Colors.white,
+              //         shape: RoundedRectangleBorder(
+              //           borderRadius: BorderRadius.circular(12),
+              //         ),
+              //         padding: const EdgeInsets.symmetric(
+              //           horizontal: 16,
+              //           vertical: 12,
+              //         ),
+              //       ),
+              //     ),
+              //   ],
+              // ),
             ],
           ),
         ),
