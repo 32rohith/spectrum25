@@ -41,6 +41,13 @@ class MealService {
           endTime: DateTime(2025, 4, 12, 10, 30),  // April 12, 2025, 10:30 AM
           isActive: false,
         ),
+        Meal(
+          id: 'test_meal',
+          name: 'Test Meal',
+          startTime: DateTime.now(), // Start from now
+          endTime: DateTime.now().add(Duration(days: 1, hours: 6)), // Until tomorrow 6 hours from now
+          isActive: true,
+        ),
       ];
       
       // Add meals to database
