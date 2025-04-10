@@ -44,6 +44,7 @@ class Team {
   final bool isVerified;
   final bool isRegistered;
   final String? projectSubmissionUrl;
+  final String? projectDescription;
 
   Team({
     required this.teamName,
@@ -55,6 +56,7 @@ class Team {
     this.isVerified = false,
     this.isRegistered = true,
     this.projectSubmissionUrl,
+    this.projectDescription,
   });
 
   Map<String, dynamic> toJson() {
@@ -68,6 +70,7 @@ class Team {
       'isVerified': isVerified,
       'isRegistered': isRegistered,
       'projectSubmissionUrl': projectSubmissionUrl,
+      'projectDescription': projectDescription,
     };
   }
 
@@ -85,6 +88,7 @@ class Team {
       isVerified: json['isVerified'] ?? false,
       isRegistered: json['isRegistered'] ?? true,
       projectSubmissionUrl: json['projectSubmissionUrl'],
+      projectDescription: json['projectDescription'],
     );
   }
-} 
+}

@@ -12,6 +12,7 @@ class TeamCredentialsScreen extends StatefulWidget {
   final Map<String, dynamic>? teamAuth;
   final Map<String, dynamic>? leaderAuth;
   final List<Map<String, dynamic>>? membersAuth;
+  final bool showLimitedInfo;
 
   const TeamCredentialsScreen({
     super.key,
@@ -19,6 +20,7 @@ class TeamCredentialsScreen extends StatefulWidget {
     this.teamAuth,
     this.leaderAuth,
     this.membersAuth,
+    this.showLimitedInfo = false,
   });
 
   @override
@@ -566,4 +568,4 @@ class _TeamCredentialsScreenState extends State<TeamCredentialsScreen> {
       ),
     );
   }
-} 
+}
