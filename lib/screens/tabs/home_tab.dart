@@ -11,6 +11,37 @@ class HomeTab extends StatelessWidget {
     required this.team,
   });
 
+  bool isEventActive(String timeStr, {bool isNextDay = false}) {
+    // Parse the time string
+    final timeParts = timeStr.split(' ');
+    final time = timeParts[0].split(':');
+    final hour = int.parse(time[0]);
+    final minute = int.parse(time[1]);
+    final isPM = timeParts[1] == 'PM';
+
+    // Create DateTime objects
+    final now = DateTime.now();
+    final eventDate = DateTime(
+      now.year,
+      now.month,
+      isNextDay ? now.day + 1 : now.day,
+      isPM && hour != 12 ? hour + 12 : hour,
+      minute,
+    );
+
+    // Set the reference time to 8:30 AM on April 11th
+    final referenceTime = DateTime(
+      now.year,
+      now.month,
+      now.day + 1, // Next day (April 11th)
+      8, // 8 AM
+      30, // 30 minutes
+    );
+
+    // Event is active if it's after the reference time (8:30 AM on April 11th)
+    return now.isAfter(referenceTime) && now.isAfter(eventDate);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -25,7 +56,7 @@ class HomeTab extends StatelessWidget {
           children: [
             // Spectrum Agenda
             Text(
-              'Spectrum Agenda',
+              '',
               style: TextStyle(
                 color: AppTheme.textPrimaryColor,
                 fontSize: 18,
@@ -41,97 +72,91 @@ class HomeTab extends StatelessWidget {
                     time: '8:30 AM',
                     title: 'Reporting Time',
                     description: 'For participants',
-                    isActive: true,
+                    isActive: isEventActive('8:30 AM'),
                   ),
                   _buildTimelineItem(
                     time: '10:00 AM',
                     title: 'Inauguration Ceremony',
                     description: 'Main Hall',
-                    isActive: true,
+                    isActive: isEventActive('10:00 AM'),
                   ),
                   _buildTimelineItem(
                     time: '12:30 PM',
                     title: 'Lunch',
                     description: 'Provided by us',
-                    isActive: false,
-                    duration: '1 hour',
+                    isActive: isEventActive('12:30 PM'),
                   ),
                   _buildTimelineItem(
                     time: '1:30 PM',
                     title: 'Guest Speaker Session',
                     description: 'IBM',
-                    isActive: false,
-                    duration: '2 hours',
+                    isActive: isEventActive('1:30 PM'),
                   ),
                   _buildTimelineItem(
                     time: '5:00 PM',
                     title: '2IM Speech',
                     description: '',
-                    isActive: false,
-                    duration: '1 hour',
+                    isActive: isEventActive('5:00 PM'),
                   ),
                   _buildTimelineItem(
                     time: '7:00 PM',
                     title: 'Dinner',
                     description: 'Provided by us',
-                    isActive: false,
-                    duration: '1 hour',
+                    isActive: isEventActive('7:00 PM'),
                   ),
                   _buildTimelineItem(
                     time: '8:00 PM',
                     title: 'Review 1',
                     description: '',
-                    isActive: false,
-                    duration: '1 hour',
+                    isActive: isEventActive('8:00 PM'),
                   ),
                   _buildTimelineItem(
                     time: '9:00 PM',
                     title: 'Vertex Speech',
                     description: '',
-                    isActive: false,
-                    duration: '1 hour',
+                    isActive: isEventActive('9:00 PM'),
                   ),
                   _buildTimelineItem(
                     time: '11:00 PM',
                     title: 'Blackbox AI Interview Selection',
                     description: '',
-                    isActive: false,
+                    isActive: isEventActive('11:00 PM'),
                   ),
                   _buildTimelineItem(
                     time: '12:00 AM',
                     title: 'Tea/Coffee',
                     description: 'Provided by us',
-                    isActive: false,
+                    isActive: isEventActive('12:00 AM', isNextDay: true),
                   ),
                   _buildTimelineItem(
                     time: '7:00 AM',
                     title: 'Breakfast',
                     description: 'Provided by us (12th April)',
-                    isActive: false,
+                    isActive: isEventActive('7:00 AM', isNextDay: true),
                   ),
                   _buildTimelineItem(
                     time: '9:00 AM',
                     title: 'Judging Begins',
                     description: '',
-                    isActive: false,
+                    isActive: isEventActive('9:00 AM', isNextDay: true),
                   ),
                   _buildTimelineItem(
                     time: '11:30 AM',
                     title: 'Judging Ends',
                     description: '',
-                    isActive: false,
+                    isActive: isEventActive('11:30 AM', isNextDay: true),
                   ),
                   _buildTimelineItem(
                     time: '12:00 PM',
                     title: 'Result Announcement',
                     description: '',
-                    isActive: false,
+                    isActive: isEventActive('12:00 PM', isNextDay: true),
                   ),
                   _buildTimelineItem(
                     time: '12:30 PM',
                     title: 'Event Ends',
                     description: '',
-                    isActive: false,
+                    isActive: isEventActive('12:30 PM', isNextDay: true),
                     isLast: true,
                   ),
                 ],
@@ -148,7 +173,6 @@ class HomeTab extends StatelessWidget {
     required String title,
     required String description,
     required bool isActive,
-    String? duration,
     bool isLast = false,
   }) {
     return Row(
@@ -218,25 +242,14 @@ class HomeTab extends StatelessWidget {
                 ),
               ),
               if (description.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: TextStyle(
-                    color: AppTheme.textSecondaryColor,
-                    fontSize: 14,
-                  ),
+              const SizedBox(height: 4),
+              Text(
+                description,
+                style: TextStyle(
+                  color: AppTheme.textSecondaryColor,
+                  fontSize: 14,
                 ),
-              ],
-              if (duration != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  duration,
-                  style: TextStyle(
-                    color: AppTheme.accentColor,
-                    fontSize: 12,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
+              ),
               ],
               SizedBox(height: isLast ? 0 : 20),
             ],
