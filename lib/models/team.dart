@@ -3,12 +3,14 @@ class TeamMember {
   final String email;
   final String phone;
   final String device;
+  final bool isVerified;
 
   TeamMember({
     required this.name,
     required this.email,
     required this.phone,
     required this.device,
+    this.isVerified = true,
   });
 
   Map<String, dynamic> toJson() {
@@ -17,6 +19,7 @@ class TeamMember {
       'email': email,
       'phone': phone,
       'device': device,
+      'isVerified': isVerified,
     };
   }
 
@@ -26,6 +29,7 @@ class TeamMember {
       email: json['email'] ?? '',
       phone: json['phone'] ?? '',
       device: json['device'] ?? '',
+      isVerified: json['isVerified'] ?? true,
     );
   }
 }
