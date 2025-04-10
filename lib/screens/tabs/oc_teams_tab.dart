@@ -621,11 +621,11 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
       backgroundColor: AppTheme.backgroundColor,
       title: Text(
         widget.teamName,
-        style: TextStyle(
-          color: AppTheme.textPrimaryColor,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+                                style: TextStyle(
+                                  color: AppTheme.textPrimaryColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
       content: Container(
         width: double.maxFinite,
         constraints: BoxConstraints(
@@ -644,12 +644,12 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
-                      children: [
+                                    children: [
                         // Team Leaders Section
                         const SizedBox(height: 16),
-                        Text(
+                                      Text(
                           'Team Leader',
-                          style: TextStyle(
+                                        style: TextStyle(
                             color: AppTheme.accentColor,
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
@@ -660,7 +660,7 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
                         if (_teamData?['leader'] != null) ...[
                           _buildMemberCard(_teamData!['leader'] as Map<String, dynamic>, isLeader: true),
                         ] else ...[
-                          Text(
+                                      Text(
                             'No leader information',
                             style: TextStyle(color: AppTheme.textSecondaryColor),
                           ),
@@ -674,9 +674,9 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
                             color: AppTheme.accentColor,
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
+                                  ),
+                                ),
+                              const SizedBox(height: 8),
                         // Display members info
                         if (_teamData?['members'] != null &&
                             _teamData!['members'] is List &&
@@ -705,10 +705,10 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
                               foregroundColor: Colors.white,
                               disabledBackgroundColor: AppTheme.accentColor.withOpacity(0.5),
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                            ),
-                          ),
-                        ),
-                      ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
                     ),
                   ),
       ),
@@ -802,9 +802,9 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
               style: TextStyle(
                 color: AppTheme.textSecondaryColor,
                 fontSize: 14,
-              ),
-            ),
-          ],
+                  ),
+          ),
+        ],
         ),
       ),
     );
