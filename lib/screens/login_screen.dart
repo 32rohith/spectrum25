@@ -21,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   String? _errorMessage;
   final AuthService _authService = AuthService();
+  bool _showPassword = false;
 
   @override
   void dispose() {
@@ -221,10 +222,21 @@ class _LoginScreenState extends State<LoginScreen> {
                       label: 'Password',
                       hint: 'Enter password',
                       controller: _passwordController,
-                      obscureText: true,
+                      obscureText: !_showPassword,
                       prefixIcon: Icon(
                         Icons.lock_outline,
                         color: AppTheme.textSecondaryColor,
+                      ),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _showPassword ? Icons.visibility_off : Icons.visibility,
+                          color: AppTheme.accentColor,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _showPassword = !_showPassword;
+                          });
+                        },
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {

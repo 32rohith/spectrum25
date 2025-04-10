@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:ui';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import 'oc_main_screen.dart';
 
 class OCLoginScreen extends StatefulWidget {
   const OCLoginScreen({super.key});
@@ -16,6 +17,7 @@ class _OCLoginScreenState extends State<OCLoginScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   String? _errorMessage;
+  bool _showPassword = false;
 
   @override
   void dispose() {
@@ -37,11 +39,11 @@ class _OCLoginScreenState extends State<OCLoginScreen> {
           _isLoading = false;
           _errorMessage = null;
           
-          // Show success message
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('OC verification would happen here'),
-              backgroundColor: Colors.green,
+          // Navigate to OC main screen
+          Navigator.pushReplacement(
+            context, 
+            MaterialPageRoute(
+              builder: (context) => const OCMainScreen(),
             ),
           );
         });
@@ -179,19 +181,35 @@ class _OCLoginScreenState extends State<OCLoginScreen> {
                     
                     const SizedBox(height: 20),
                     
-                    // Phone Field
+                    // Password Field (Phone Number)
                     CustomTextField(
-                      label: 'Phone Number',
-                      hint: 'Enter your phone number',
+                      label: 'Password',
+                      hint: 'Enter your password (phone number)',
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
+                      obscureText: !_showPassword,
                       prefixIcon: Icon(
-                        Icons.phone,
+                        Icons.lock_outline,
                         color: AppTheme.textSecondaryColor,
+                      ),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _showPassword ? Icons.visibility_off : Icons.visibility,
+                          color: AppTheme.accentColor,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _showPassword = !_showPassword;
+                          });
+                        },
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Please enter your phone number';
+                          return 'Please enter your password';
+                        }
+                        // Ensure only numbers are entered
+                        if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+                          return 'Password must contain only numbers';
                         }
                         return null;
                       },
