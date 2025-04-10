@@ -5,13 +5,26 @@ import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import 'qr_verification_screen.dart';
 
-class TeamCredentialsScreen extends StatelessWidget {
+class TeamCredentialsScreen extends StatefulWidget {
   final Team team;
+  final Map<String, dynamic>? teamAuth;
+  final Map<String, dynamic>? leaderAuth;
+  final List<Map<String, dynamic>>? membersAuth;
 
   const TeamCredentialsScreen({
     super.key,
     required this.team,
+    this.teamAuth,
+    this.leaderAuth,
+    this.membersAuth,
   });
+
+  @override
+  _TeamCredentialsScreenState createState() => _TeamCredentialsScreenState();
+}
+
+class _TeamCredentialsScreenState extends State<TeamCredentialsScreen> {
+  bool _showPasswords = false;
 
   void _copyToClipboard(BuildContext context, String text, String message) {
     Clipboard.setData(ClipboardData(text: text));
@@ -42,59 +55,237 @@ class TeamCredentialsScreen extends StatelessWidget {
           ),
         ),
         child: SafeArea(
-          child: Padding(
+          child: ListView(
             padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Icon(
-                  Icons.check_circle,
-                  color: Colors.green,
-                  size: 80,
+            children: [
+              const Icon(
+                Icons.check_circle,
+                color: Colors.green,
+                size: 80,
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Registration Successful!',
+                style: TextStyle(
+                  color: AppTheme.textPrimaryColor,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
                 ),
-                const SizedBox(height: 24),
-                Text(
-                  'Registration Successful!',
-                  style: TextStyle(
-                    color: AppTheme.textPrimaryColor,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Your team "${widget.team.teamName}" has been registered.',
+                style: TextStyle(
+                  color: AppTheme.textSecondaryColor,
+                  fontSize: 16,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton.icon(
+                    icon: Icon(
+                      _showPasswords ? Icons.visibility_off : Icons.visibility,
+                      color: Colors.white,
+                    ),
+                    label: Text(
+                      _showPasswords ? "Hide Passwords" : "Show Passwords",
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.accentColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _showPasswords = !_showPasswords;
+                      });
+                    },
                   ),
-                  textAlign: TextAlign.center,
+                ],
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Team Credentials Card
+              GlassCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Team Information (For Records Only)',
+                      style: TextStyle(
+                        color: AppTheme.accentColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Please save this team information for your records. Team members will use their individual credentials to login.',
+                      style: TextStyle(
+                        color: AppTheme.textSecondaryColor,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Username
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardColor,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.glassBorderColor),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.alternate_email,
+                            color: AppTheme.primaryColor,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Team ID',
+                                  style: TextStyle(
+                                    color: AppTheme.textSecondaryColor,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  widget.team.username,
+                                  style: TextStyle(
+                                    color: AppTheme.textPrimaryColor,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.copy,
+                              color: AppTheme.accentColor,
+                            ),
+                            onPressed: () => _copyToClipboard(
+                              context,
+                              widget.team.username,
+                              'Team ID copied to clipboard',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Password
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardColor,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.glassBorderColor),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.vpn_key,
+                            color: AppTheme.primaryColor,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Team Password',
+                                  style: TextStyle(
+                                    color: AppTheme.textSecondaryColor,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _showPasswords 
+                                    ? widget.team.password
+                                    : '••••••••••',
+                                  style: TextStyle(
+                                    color: AppTheme.textPrimaryColor,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.copy,
+                              color: AppTheme.accentColor,
+                            ),
+                            onPressed: () => _copyToClipboard(
+                              context,
+                              widget.team.password,
+                              'Team password copied to clipboard',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Your team "${team.teamName}" has been registered.',
-                  style: TextStyle(
-                    color: AppTheme.textSecondaryColor,
-                    fontSize: 16,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 32),
-                
-                // Team Credentials Card
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Leader Credentials Card
+              if (widget.leaderAuth != null)
                 GlassCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Team Credentials',
-                        style: TextStyle(
-                          color: AppTheme.accentColor,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.star,
+                            color: Colors.amber,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Team Leader Credentials',
+                            style: TextStyle(
+                              color: AppTheme.accentColor,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Share these credentials with your team members.',
+                        'Credentials for ${widget.team.leader.name}',
                         style: TextStyle(
                           color: AppTheme.textSecondaryColor,
                           fontSize: 14,
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
                       
                       // Username
                       Container(
@@ -125,7 +316,7 @@ class TeamCredentialsScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    team.username,
+                                    widget.leaderAuth!['username'],
                                     style: TextStyle(
                                       color: AppTheme.textPrimaryColor,
                                       fontSize: 18,
@@ -142,8 +333,8 @@ class TeamCredentialsScreen extends StatelessWidget {
                               ),
                               onPressed: () => _copyToClipboard(
                                 context,
-                                team.username,
-                                'Username copied to clipboard',
+                                widget.leaderAuth!['username'],
+                                'Leader username copied to clipboard',
                               ),
                             ),
                           ],
@@ -181,7 +372,9 @@ class TeamCredentialsScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    team.password,
+                                    _showPasswords 
+                                      ? widget.leaderAuth!['password'] 
+                                      : '••••••••••',
                                     style: TextStyle(
                                       color: AppTheme.textPrimaryColor,
                                       fontSize: 18,
@@ -198,8 +391,8 @@ class TeamCredentialsScreen extends StatelessWidget {
                               ),
                               onPressed: () => _copyToClipboard(
                                 context,
-                                team.password,
-                                'Password copied to clipboard',
+                                widget.leaderAuth!['password'],
+                                'Leader password copied to clipboard',
                               ),
                             ),
                           ],
@@ -208,71 +401,211 @@ class TeamCredentialsScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                
+              
+              // Members Credentials Cards
+              if (widget.membersAuth != null && widget.membersAuth!.isNotEmpty) ...[
                 const SizedBox(height: 24),
-                
-                // Important Information
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.accentColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppTheme.accentColor.withOpacity(0.3),
-                    ),
+                Text(
+                  'Team Members Credentials',
+                  style: TextStyle(
+                    color: AppTheme.textPrimaryColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                   ),
-                  child: Column(
-                    children: [
-                      Row(
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                ...widget.membersAuth!.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final memberAuth = entry.value;
+                  
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16.0),
+                    child: GlassCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(
-                            Icons.info_outline,
-                            color: AppTheme.accentColor,
-                            size: 20,
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.person,
+                                color: AppTheme.primaryColor,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Member: ${memberAuth['name']}',
+                                  style: TextStyle(
+                                    color: AppTheme.accentColor,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Important',
-                            style: TextStyle(
-                              color: AppTheme.accentColor,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                          const SizedBox(height: 16),
+                          
+                          // Username
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppTheme.cardColor,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppTheme.glassBorderColor),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.alternate_email,
+                                  color: AppTheme.primaryColor,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Username',
+                                        style: TextStyle(
+                                          color: AppTheme.textSecondaryColor,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        memberAuth['username'],
+                                        style: TextStyle(
+                                          color: AppTheme.textPrimaryColor,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.copy,
+                                    color: AppTheme.accentColor,
+                                    size: 20,
+                                  ),
+                                  onPressed: () => _copyToClipboard(
+                                    context,
+                                    memberAuth['username'],
+                                    'Username copied to clipboard',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 8),
+                          
+                          // Password
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppTheme.cardColor,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppTheme.glassBorderColor),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.vpn_key,
+                                  color: AppTheme.primaryColor,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Password',
+                                        style: TextStyle(
+                                          color: AppTheme.textSecondaryColor,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        _showPasswords 
+                                          ? memberAuth['password'] 
+                                          : '••••••••••',
+                                        style: TextStyle(
+                                          color: AppTheme.textPrimaryColor,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.copy,
+                                    color: AppTheme.accentColor,
+                                    size: 20,
+                                  ),
+                                  onPressed: () => _copyToClipboard(
+                                    context,
+                                    memberAuth['password'],
+                                    'Password copied to clipboard',
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '• Save these credentials or take a screenshot\n'
-                        '• Share these credentials with your team members\n'
-                        '• Team members will use these to log in\n'
-                        '• You\'ll need to verify your team with a QR code',
-                        style: TextStyle(
-                          color: AppTheme.textSecondaryColor,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                
-                const Spacer(),
-                
-                // Continue Button
-                GlassButton(
-                  text: 'Continue to QR Verification',
-                  onPressed: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => QRVerificationScreen(team: team),
-                      ),
-                    );
-                  },
-                  icon: Icons.qr_code_scanner,
-                ),
+                    ),
+                  );
+                }),
               ],
-            ),
+              
+              const SizedBox(height: 24),
+              
+              Text(
+                'Important: Please save these credentials!',
+                style: TextStyle(
+                  color: AppTheme.accentColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Each team member must use their own login credentials.',
+                style: TextStyle(
+                  color: AppTheme.textSecondaryColor,
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              
+              const SizedBox(height: 32),
+              
+              // Proceed Button
+              GlassButton(
+                text: 'Proceed to Verification',
+                onPressed: () {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => QRVerificationScreen(team: widget.team),
+                    ),
+                  );
+                },
+                icon: Icons.arrow_forward,
+              ),
+              
+              const SizedBox(height: 40),
+            ],
           ),
         ),
       ),

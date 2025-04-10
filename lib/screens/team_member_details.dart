@@ -116,7 +116,12 @@ class _TeamMemberDetailsScreenState extends State<TeamMemberDetailsScreen> {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (context) => TeamCredentialsScreen(team: result['team']),
+              builder: (context) => TeamCredentialsScreen(
+                team: result['team'],
+                teamAuth: result['teamAuth'],
+                leaderAuth: result['leaderAuth'],
+                membersAuth: result['membersAuth'],
+              ),
             ),
           );
         } else {
