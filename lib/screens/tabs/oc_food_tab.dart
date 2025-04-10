@@ -7,7 +7,6 @@ import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
 import '../../services/meal_service.dart';
 import '../../models/meal_tracking.dart';
-import '../../services/auth_service.dart';
 import 'dart:developer' as developer;
 
 class OCFoodTab extends StatefulWidget {
@@ -20,7 +19,6 @@ class OCFoodTab extends StatefulWidget {
 class _OCFoodTabState extends State<OCFoodTab> {
   final MealService _mealService = MealService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final AuthService _authService = AuthService();
   bool _isLoading = true;
   bool _isScanning = false;
   List<Meal> _meals = [];
@@ -29,12 +27,11 @@ class _OCFoodTabState extends State<OCFoodTab> {
   List<MealConsumption> _recentConsumptions = [];
   MobileScannerController? _scannerController;
   Map<String, dynamic>? _lastScanResult;
-  bool _isAuthenticated = false;
   
   @override
   void initState() {
     super.initState();
-    _checkAuthAndLoadMeals();
+    _loadMeals();
   }
   
   @override
@@ -43,40 +40,7 @@ class _OCFoodTabState extends State<OCFoodTab> {
     super.dispose();
   }
   
-  Future<void> _checkAuthAndLoadMeals() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-    
-    try {
-      // Check if user is authenticated
-      final currentUser = await _authService.getCurrentUser();
-      if (currentUser == null) {
-        setState(() {
-          _error = 'You must be logged in to view meal information.';
-          _isLoading = false;
-          _isAuthenticated = false;
-        });
-        return;
-      }
-      
-      // User is authenticated, proceed with loading meals
-      _isAuthenticated = true;
-      await _loadMeals();
-    } catch (e) {
-      developer.log('Error checking authentication: $e');
-      setState(() {
-        _error = 'Error checking authentication: $e';
-        _isLoading = false;
-      });
-    }
-  }
-  
   Future<void> _loadMeals() async {
-    // Skip if not authenticated
-    if (!_isAuthenticated) return;
-    
     setState(() {
       _isLoading = true;
       _error = null;
@@ -274,10 +238,23 @@ class _OCFoodTabState extends State<OCFoodTab> {
         
         final stats = snapshot.data!;
         final total = stats['total'] as int? ?? 0;
+        final consumedCount = stats['uniqueMembers'] as int? ?? 0;
+        final totalMembers = stats['totalMembers'] as int? ?? 0;
+        final remainingCount = stats['remainingMembers'] as int? ?? 0;
+        
+        // Get team-based consumption data if available
+        Map<String, List<dynamic>>? consumptionsByTeam;
+        if (stats.containsKey('consumptionsByTeam')) {
+          consumptionsByTeam = {};
+          (stats['consumptionsByTeam'] as Map<String, dynamic>).forEach((team, consumptions) {
+            consumptionsByTeam![team] = (consumptions as List<dynamic>);
+          });
+        }
         
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Meal info header
             Text(
               _selectedMeal!.name,
               style: TextStyle(
@@ -295,9 +272,10 @@ class _OCFoodTabState extends State<OCFoodTab> {
             ),
             const SizedBox(height: 16),
             
-            // Stats Row
+            // Stats Cards
             Row(
               children: [
+                // Total meals served
                 Expanded(
                   child: GlassCard(
                     child: Column(
@@ -324,7 +302,9 @@ class _OCFoodTabState extends State<OCFoodTab> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
+                
+                // Unique teams
                 Expanded(
                   child: GlassCard(
                     child: Column(
@@ -341,6 +321,35 @@ class _OCFoodTabState extends State<OCFoodTab> {
                         const SizedBox(height: 4),
                         Text(
                           'Teams Served',
+                          style: TextStyle(
+                            color: AppTheme.textSecondaryColor,
+                            fontSize: 12,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                
+                // Remaining members
+                Expanded(
+                  child: GlassCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          '$consumedCount/$totalMembers',
+                          style: TextStyle(
+                            color: Colors.orange,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '$remainingCount Left',
                           style: TextStyle(
                             color: AppTheme.textSecondaryColor,
                             fontSize: 12,
@@ -374,10 +383,87 @@ class _OCFoodTabState extends State<OCFoodTab> {
                       ),
                     ),
                   ),
-                  
+            
+            // Consumption by Team
+            if (consumptionsByTeam != null && consumptionsByTeam.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              Text(
+                'Consumption by Team',
+                style: TextStyle(
+                  color: AppTheme.textPrimaryColor,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                height: 120,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: consumptionsByTeam.length,
+                  itemBuilder: (context, index) {
+                    final teamName = consumptionsByTeam!.keys.elementAt(index);
+                    final teamConsumptions = consumptionsByTeam[teamName]!;
+                    
+                    return Container(
+                      width: 160,
+                      margin: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              teamName,
+                              style: TextStyle(
+                                color: AppTheme.textPrimaryColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Divider(color: AppTheme.textSecondaryColor.withOpacity(0.2)),
+                          Expanded(
+                            child: Center(
+                              child: Text(
+                                '${teamConsumptions.length} meals',
+                                style: TextStyle(
+                                  color: AppTheme.accentColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+            
             // Recent consumptions
             if (_recentConsumptions.isNotEmpty) ...[
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               Text(
                 'Recent Meals Served',
                 style: TextStyle(
@@ -637,7 +723,7 @@ class _OCFoodTabState extends State<OCFoodTab> {
                               ),
                               const SizedBox(height: 24),
                               ElevatedButton(
-                                onPressed: _checkAuthAndLoadMeals,
+                                onPressed: _loadMeals,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppTheme.accentColor,
                                 ),

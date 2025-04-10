@@ -18,20 +18,21 @@ class FoodTab extends StatefulWidget {
 
 class _FoodTabState extends State<FoodTab> {
   final MealService _mealService = MealService();
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _teamController = TextEditingController();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   bool _isLoading = true;
   List<Meal> _meals = [];
   Meal? _activeMeal;
   String? _errorMessage;
   Timer? _qrRefreshTimer;
   String _qrData = '';
-  bool _hasUserInfo = false;
+  String _memberName = '';
+  String _teamName = '';
   
   @override
   void initState() {
     super.initState();
-    _loadMeals();
+    _loadUserData();
+    
     // Refresh QR code every 2 minutes for security
     _qrRefreshTimer = Timer.periodic(const Duration(minutes: 2), (_) {
       _refreshQRCode();
@@ -41,9 +42,83 @@ class _FoodTabState extends State<FoodTab> {
   @override
   void dispose() {
     _qrRefreshTimer?.cancel();
-    _nameController.dispose();
-    _teamController.dispose();
     super.dispose();
+  }
+  
+  // Load user data from Firebase
+  Future<void> _loadUserData() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      // Try to get the member info from Firestore
+      final membersSnapshot = await _firestore.collection('members').limit(1).get();
+      
+      if (membersSnapshot.docs.isNotEmpty) {
+        final memberDoc = membersSnapshot.docs.first;
+        final memberData = memberDoc.data();
+        
+        String name = memberData['name'] ?? '';
+        String teamId = memberData['teamId'] ?? '';
+        String teamName = '';
+        
+        // Get team name if teamId exists
+        if (teamId.isNotEmpty) {
+          final teamDoc = await _firestore.collection('teams').doc(teamId).get();
+          if (teamDoc.exists) {
+            final teamData = teamDoc.data();
+            teamName = teamData?['teamName'] ?? teamData?['name'] ?? '';
+          }
+        }
+        
+        setState(() {
+          _memberName = name;
+          _teamName = teamName;
+        });
+        
+        developer.log('Loaded user data: $_memberName from $_teamName');
+      } else {
+        // If no members exist, fetch member info from memberInfo collection
+        final memberInfoSnapshot = await _firestore.collection('memberInfo').limit(1).get();
+        
+        if (memberInfoSnapshot.docs.isNotEmpty) {
+          final memberInfoDoc = memberInfoSnapshot.docs.first;
+          final memberInfoData = memberInfoDoc.data();
+          
+          setState(() {
+            _memberName = memberInfoData['name'] ?? '';
+            _teamName = memberInfoData['team'] ?? '';
+          });
+          
+          developer.log('Loaded member info: $_memberName from $_teamName');
+        } else {
+          // Default fallback if no user data found
+          setState(() {
+            _memberName = 'Spectrum';
+            _teamName = 'Organizer';
+          });
+          
+          // Save this default info to Firestore
+          _mealService.saveMemberInfo(_memberName, _teamName);
+          developer.log('Created default user info: $_memberName from $_teamName');
+        }
+      }
+      
+      // Continue to load meals
+      await _loadMeals();
+    } catch (e) {
+      developer.log('Error loading user data: $e');
+      setState(() {
+        _memberName = 'Spectrum';
+        _teamName = 'Participant';
+        _isLoading = false;
+      });
+      
+      // Save this default info and continue
+      _mealService.saveMemberInfo(_memberName, _teamName);
+      await _loadMeals();
+    }
   }
   
   Future<void> _loadMeals() async {
@@ -67,6 +142,11 @@ class _FoodTabState extends State<FoodTab> {
         _activeMeal = activeMeal;
         _isLoading = false;
       });
+      
+      // Generate QR code if there's an active meal
+      if (_activeMeal != null) {
+        _refreshQRCode();
+      }
     } catch (e) {
       developer.log('Error loading meal data: $e');
       setState(() {
@@ -77,35 +157,17 @@ class _FoodTabState extends State<FoodTab> {
   }
   
   void _refreshQRCode() {
-    if (_activeMeal != null && _hasUserInfo) {
+    if (_activeMeal != null) {
       // Generate a new QR code with current timestamp
       final qrData = _mealService.generateMealQRCodeWithoutAuth(
-        _nameController.text.trim(), 
-        _teamController.text.trim(), 
+        _memberName, 
+        _teamName, 
         _activeMeal!.id
       );
       setState(() {
         _qrData = qrData;
       });
     }
-  }
-  
-  void _submitUserInfo() {
-    final name = _nameController.text.trim();
-    final team = _teamController.text.trim();
-    
-    if (name.isEmpty || team.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter both your name and team name')),
-      );
-      return;
-    }
-    
-    setState(() {
-      _hasUserInfo = true;
-    });
-    
-    _refreshQRCode();
   }
   
   String _formatMealTime(DateTime start, DateTime end) {
@@ -124,11 +186,11 @@ class _FoodTabState extends State<FoodTab> {
     final bool isPast = DateTime.now().isAfter(meal.endTime);
     
     return FutureBuilder<bool>(
-      future: _hasUserInfo ? _mealService.hasMemberConsumedMealByName(
-        _nameController.text.trim(),
-        _teamController.text.trim(),
+      future: _mealService.hasMemberConsumedMealByName(
+        _memberName,
+        _teamName,
         meal.id
-      ) : Future.value(false),
+      ),
       builder: (context, snapshot) {
         final bool hasConsumed = snapshot.data ?? false;
         
@@ -233,7 +295,7 @@ class _FoodTabState extends State<FoodTab> {
                 ),
               ],
               
-              if (isActive && !hasConsumed && _hasUserInfo) ...[
+              if (isActive && !hasConsumed) ...[
                 const SizedBox(height: 16),
                 Text(
                   'Meal QR Code',
@@ -251,21 +313,52 @@ class _FoodTabState extends State<FoodTab> {
                     fontSize: 14,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
                 Center(
-                  child: QrImageView(
-                    data: _qrData,
-                    version: QrVersions.auto,
-                    size: 200,
-                    backgroundColor: Colors.white,
-                    errorStateBuilder: (context, error) {
-                      return const Center(
-                        child: Text(
-                          'Error generating QR code',
-                          style: TextStyle(color: Colors.red),
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          spreadRadius: 1,
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
                         ),
-                      );
-                    },
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(
+                            '$_memberName - $_teamName',
+                            style: const TextStyle(
+                              color: Colors.black87,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        QrImageView(
+                          data: _qrData,
+                          version: QrVersions.auto,
+                          size: 200,
+                          backgroundColor: Colors.white,
+                          errorStateBuilder: (context, error) {
+                            return const Center(
+                              child: Text(
+                                'Error generating QR code',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -283,54 +376,6 @@ class _FoodTabState extends State<FoodTab> {
           ),
         );
       },
-    );
-  }
-  
-  Widget _buildUserInfoForm() {
-    return GlassCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Enter Your Information',
-            style: TextStyle(
-              color: AppTheme.textPrimaryColor,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _nameController,
-            decoration: const InputDecoration(
-              labelText: 'Your Name',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _teamController,
-            decoration: const InputDecoration(
-              labelText: 'Your Team Name',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Center(
-            child: ElevatedButton(
-              onPressed: _submitUserInfo,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.accentColor,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 12,
-                ),
-              ),
-              child: const Text('Generate QR Code'),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -400,9 +445,7 @@ class _FoodTabState extends State<FoodTab> {
               Expanded(
                 child: Column(
                   children: [
-                    if (!_hasUserInfo) ...[
-                      _buildUserInfoForm(),
-                    ] else if (_activeMeal != null) ...[
+                    if (_activeMeal != null) ...[
                       Text(
                         'Active Meal',
                         style: TextStyle(
@@ -420,29 +463,27 @@ class _FoodTabState extends State<FoodTab> {
                       ),
                     ],
                     
-                    if (_hasUserInfo) ...[
-                      const SizedBox(height: 24),
-                      Text(
-                        'All Meals',
-                        style: TextStyle(
-                          color: AppTheme.textPrimaryColor,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'All Meals',
+                      style: TextStyle(
+                        color: AppTheme.textPrimaryColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
-                      const SizedBox(height: 8),
-                      Expanded(
-                        child: ListView.builder(
-                          itemCount: _meals.length,
-                          itemBuilder: (context, index) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: _buildMealCard(_meals[index]),
-                            );
-                          },
-                        ),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: _meals.length,
+                        itemBuilder: (context, index) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: _buildMealCard(_meals[index]),
+                          );
+                        },
                       ),
-                    ],
+                    ),
                   ],
                 ),
               ),
