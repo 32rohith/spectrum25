@@ -649,9 +649,12 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                                 }
                                 
                                 return Container(
-                                  margin: const EdgeInsets.only(bottom: 12),
+                                  margin: const EdgeInsets.only(bottom: 8),
                                   child: GlassCard(
-                                    padding: const EdgeInsets.all(16),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
                                     child: InkWell(
                                       onTap: () => _showTeamDetailsDialog(
                                         team['id'],
@@ -986,8 +989,9 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
         widget.teamName, 
         style: TextStyle(color: AppTheme.textPrimaryColor),
       ),
-      content: Container(
+      content: SizedBox(
         width: double.maxFinite,
+        height: 350,
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _errorMessage != null
@@ -1047,16 +1051,16 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
                                 ),
                                 child: Row(
                                   children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Row(
-                                  children: [
-                                    Text(
+                                            children: [
+                                              Text(
                                                 member['name'] ?? 'Unknown',
-                                      style: TextStyle(
-                                        color: AppTheme.textPrimaryColor,
+                                                style: TextStyle(
+                                                  color: AppTheme.textPrimaryColor,
                                                   fontWeight: FontWeight.bold,
                                                 ),
                                               ),
@@ -1079,30 +1083,30 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
                                                         ? AppTheme.primaryColor
                                                         : AppTheme.accentColor,
                                                     fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
                                               ),
                                             ],
                                           ),
                                           const SizedBox(height: 4),
-                                    Text(
+                                          Text(
                                             member['email'] ?? 'No email',
-                                      style: TextStyle(
-                                        color: AppTheme.textSecondaryColor,
+                                            style: TextStyle(
+                                              color: AppTheme.textSecondaryColor,
                                               fontSize: 12,
-                                      ),
-                                    ),
-                                    Text(
+                                            ),
+                                          ),
+                                          Text(
                                             'Phone: ${member['phone'] ?? 'Not provided'}',
-                                      style: TextStyle(
-                                        color: AppTheme.textSecondaryColor,
+                                            style: TextStyle(
+                                              color: AppTheme.textSecondaryColor,
                                               fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
                                     // Verification checkbox
                                     Checkbox(
                                       value: member['isVerified'] ?? false,
@@ -1113,16 +1117,16 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
                                       },
                                       activeColor: AppTheme.accentColor,
                                       checkColor: Colors.white,
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ],
-                          ),
+                            );
+                          },
                         ),
-                      );
-                    },
+                      ),
+                    ],
                   ),
-          ),
-        ],
-      ),
       ),
       actions: [
         if (_isSaving)

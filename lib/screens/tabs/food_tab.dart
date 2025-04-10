@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
-import '../../services/auth_service.dart';
-import 'dart:async';
+import '../../models/meal_tracking.dart';
+import '../../services/meal_service.dart';
+import 'dart:developer' as developer;
 
 class FoodTab extends StatefulWidget {
   const FoodTab({super.key});
@@ -15,209 +17,318 @@ class FoodTab extends StatefulWidget {
 }
 
 class _FoodTabState extends State<FoodTab> {
-  final AuthService _authService = AuthService();
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  
+  final MealService _mealService = MealService();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _teamController = TextEditingController();
   bool _isLoading = true;
+  List<Meal> _meals = [];
+  Meal? _activeMeal;
   String? _errorMessage;
-  
-  String _mealQRCode = '';
-  Map<String, dynamic> _meals = {};
-  String _memberName = '';
-  
-  // Refresh timer to keep QR code up to date
-  Timer? _refreshTimer;
+  Timer? _qrRefreshTimer;
+  String _qrData = '';
+  bool _hasUserInfo = false;
   
   @override
   void initState() {
     super.initState();
-    _loadMealData();
-    
-    // Set up a timer to refresh the QR code every minute
-    _refreshTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      _loadMealData();
+    _loadMeals();
+    // Refresh QR code every 2 minutes for security
+    _qrRefreshTimer = Timer.periodic(const Duration(minutes: 2), (_) {
+      _refreshQRCode();
     });
   }
   
   @override
   void dispose() {
-    _refreshTimer?.cancel();
+    _qrRefreshTimer?.cancel();
+    _nameController.dispose();
+    _teamController.dispose();
     super.dispose();
   }
   
-  Future<void> _loadMealData() async {
+  Future<void> _loadMeals() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
     
     try {
-      final user = _auth.currentUser;
+      // Try to initialize meals (will only work the first time)
+      await _mealService.initializeMeals();
       
-      if (user == null) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = 'You need to be logged in to view meal information.';
-        });
-        return;
-      }
+      // Get all meals
+      final meals = await _mealService.getMeals();
       
-      print('Food Tab - Attempting to load meal data for: ${user.email}');
+      // Get active meal if any
+      final activeMeal = await _mealService.getActiveMeal();
       
-      // Get meal status from the AuthService
-      final result = await _authService.getMemberMealStatus(user.email!);
-      
-      if (result['success']) {
-        setState(() {
-          _mealQRCode = result['mealQRCode'] ?? '';
-          _meals = Map<String, dynamic>.from(result['meals'] ?? {});
-          _memberName = result['name'] ?? '';
-          _isLoading = false;
-        });
-        print('Food Tab - Successfully loaded meal data for: $_memberName');
-      } else {
-        // Try a direct lookup by querying the members collection
-        print('Food Tab - Initial lookup failed, trying direct Firestore query');
-        
-        try {
-          // Try to find by username if using Firebase Auth format
-          String username = '';
-          if (user.email!.contains('@hackathon.app')) {
-            username = user.email!.split('@')[0];
-            print('Food Tab - Extracted username: $username');
-            
-            // Query by username
-            final membersQuery = await _firestore
-                .collection('members')
-                .where('username', isEqualTo: username)
-                .limit(1)
-                .get();
-                
-            if (membersQuery.docs.isNotEmpty) {
-              final memberData = membersQuery.docs.first.data();
-              
-              setState(() {
-                _mealQRCode = memberData['mealQRCode'] ?? '';
-                _meals = Map<String, dynamic>.from(memberData['meals'] ?? {});
-                _memberName = memberData['name'] ?? '';
-                _isLoading = false;
-                _errorMessage = null;
-              });
-              
-              print('Food Tab - Successfully loaded data directly for: $_memberName');
-              return;
-            }
-          }
-          
-          // If we got here, direct lookup failed too
-          setState(() {
-            _isLoading = false;
-            _errorMessage = result['message'] ?? 'Failed to load meal information.';
-          });
-          print('Food Tab - All lookup methods failed: ${result['message']}');
-        } catch (directError) {
-          setState(() {
-            _isLoading = false;
-            _errorMessage = 'Error during direct lookup: $directError';
-          });
-          print('Food Tab - Error during direct lookup: $directError');
-        }
-      }
-    } catch (e) {
       setState(() {
+        _meals = meals;
+        _activeMeal = activeMeal;
         _isLoading = false;
-        _errorMessage = 'Error loading meal information: $e';
       });
-      print('Food Tab - Error loading meal data: $e');
+    } catch (e) {
+      developer.log('Error loading meal data: $e');
+      setState(() {
+        _errorMessage = 'Error loading meal data: $e';
+        _isLoading = false;
+      });
     }
   }
   
-  String _formatDateTime(dynamic dateTime) {
-    if (dateTime == null) return 'Not scheduled';
-    if (dateTime is Timestamp) {
-      return _formatDate(dateTime.toDate());
-    } else if (dateTime is DateTime) {
-      return _formatDate(dateTime);
+  void _refreshQRCode() {
+    if (_activeMeal != null && _hasUserInfo) {
+      // Generate a new QR code with current timestamp
+      final qrData = _mealService.generateMealQRCodeWithoutAuth(
+        _nameController.text.trim(), 
+        _teamController.text.trim(), 
+        _activeMeal!.id
+      );
+      setState(() {
+        _qrData = qrData;
+      });
     }
-    return 'Unknown';
   }
   
-  String _formatDate(DateTime dateTime) {
-    final day = dateTime.day.toString().padLeft(2, '0');
-    final month = dateTime.month.toString().padLeft(2, '0');
-    final year = dateTime.year;
-    final hour = dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour;
-    final minute = dateTime.minute.toString().padLeft(2, '0');
-    final period = dateTime.hour >= 12 ? 'PM' : 'AM';
+  void _submitUserInfo() {
+    final name = _nameController.text.trim();
+    final team = _teamController.text.trim();
     
-    return '$day/$month/$year, $hour:$minute $period';
+    if (name.isEmpty || team.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter both your name and team name')),
+      );
+      return;
+    }
+    
+    setState(() {
+      _hasUserInfo = true;
+    });
+    
+    _refreshQRCode();
   }
   
-  Widget _buildMealCard(String mealType, Map<String, dynamic> mealData) {
-    final bool served = mealData['served'] ?? false;
-    final dynamic servedAt = mealData['servedAt'];
-    final dynamic mealDateTime = mealData['dateTime'];
+  String _formatMealTime(DateTime start, DateTime end) {
+    final startTime = '${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')}';
+    final endTime = '${end.hour.toString().padLeft(2, '0')}:${end.minute.toString().padLeft(2, '0')}';
+    return '$startTime - $endTime';
+  }
+  
+  String _formatDate(DateTime date) {
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+  
+  Widget _buildMealCard(Meal meal) {
+    final bool isActive = meal.isCurrentlyActive;
+    final bool isPast = DateTime.now().isAfter(meal.endTime);
     
-    // Capitalize the first letter directly
-    final String capitalizedMealType = mealType.isNotEmpty 
-        ? mealType[0].toUpperCase() + mealType.substring(1) 
-        : mealType;
-    
+    return FutureBuilder<bool>(
+      future: _hasUserInfo ? _mealService.hasMemberConsumedMealByName(
+        _nameController.text.trim(),
+        _teamController.text.trim(),
+        meal.id
+      ) : Future.value(false),
+      builder: (context, snapshot) {
+        final bool hasConsumed = snapshot.data ?? false;
+        
+        return GlassCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    meal.name,
+                    style: TextStyle(
+                      color: AppTheme.textPrimaryColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? AppTheme.accentColor.withOpacity(0.2)
+                          : isPast
+                              ? Colors.grey.withOpacity(0.2)
+                              : AppTheme.primaryColor.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      isActive
+                          ? 'Now Serving'
+                          : isPast
+                              ? 'Completed'
+                              : 'Upcoming',
+                      style: TextStyle(
+                        color: isActive
+                            ? AppTheme.accentColor
+                            : isPast
+                                ? Colors.grey
+                                : AppTheme.primaryColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${_formatDate(meal.startTime)}',
+                style: TextStyle(
+                  color: AppTheme.textSecondaryColor,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _formatMealTime(meal.startTime, meal.endTime),
+                style: TextStyle(
+                  color: AppTheme.textSecondaryColor,
+                  fontSize: 14,
+                ),
+              ),
+              
+              if (hasConsumed) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.green.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.check_circle,
+                        color: Colors.green,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'You have already checked in for this meal.',
+                          style: TextStyle(
+                            color: Colors.green,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              
+              if (isActive && !hasConsumed && _hasUserInfo) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Meal QR Code',
+                  style: TextStyle(
+                    color: AppTheme.textPrimaryColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Show this QR code to the food counter staff to get your meal.',
+                  style: TextStyle(
+                    color: AppTheme.textSecondaryColor,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: QrImageView(
+                    data: _qrData,
+                    version: QrVersions.auto,
+                    size: 200,
+                    backgroundColor: Colors.white,
+                    errorStateBuilder: (context, error) {
+                      return const Center(
+                        child: Text(
+                          'Error generating QR code',
+                          style: TextStyle(color: Colors.red),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: ElevatedButton(
+                    onPressed: _refreshQRCode,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                    ),
+                    child: const Text('Refresh QR Code'),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+  
+  Widget _buildUserInfoForm() {
     return GlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                Icons.restaurant,
-                color: served ? Colors.green : AppTheme.accentColor,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                capitalizedMealType,
-                style: TextStyle(
-                  color: AppTheme.textPrimaryColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: served ? Colors.green.withOpacity(0.2) : Colors.orange.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  served ? 'Served' : 'Not Served',
-                  style: TextStyle(
-                    color: served ? Colors.green : Colors.orange,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
           Text(
-            'Scheduled: ${_formatDateTime(mealDateTime)}',
+            'Enter Your Information',
             style: TextStyle(
-              color: AppTheme.textSecondaryColor,
-              fontSize: 14,
+              color: AppTheme.textPrimaryColor,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
             ),
           ),
-          if (served && servedAt != null)
-            Text(
-              'Served at: ${_formatDateTime(servedAt)}',
-              style: TextStyle(
-                color: Colors.green,
-                fontSize: 14,
-              ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _nameController,
+            decoration: const InputDecoration(
+              labelText: 'Your Name',
+              border: OutlineInputBorder(),
             ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _teamController,
+            decoration: const InputDecoration(
+              labelText: 'Your Team Name',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Center(
+            child: ElevatedButton(
+              onPressed: _submitUserInfo,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.accentColor,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 12,
+                ),
+              ),
+              child: const Text('Generate QR Code'),
+            ),
+          ),
         ],
       ),
     );
@@ -227,201 +338,117 @@ class _FoodTabState extends State<FoodTab> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
-              ? Center(
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Hackathon Meals',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimaryColor,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Show your QR code to get your meals',
+              style: TextStyle(
+                color: AppTheme.textSecondaryColor,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 24),
+            
+            if (_isLoading)
+              const Expanded(
+                child: Center(
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (_errorMessage != null)
+              Expanded(
+                child: Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        _errorMessage!,
-                        style: TextStyle(color: AppTheme.errorColor),
-                        textAlign: TextAlign.center,
+                      Icon(
+                        Icons.error_outline,
+                        color: AppTheme.errorColor,
+                        size: 64,
                       ),
                       const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadMealData,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.accentColor,
+                      Text(
+                        _errorMessage!,
+                        style: TextStyle(
+                          color: AppTheme.textSecondaryColor,
+                          fontSize: 16,
                         ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton(
+                        onPressed: _loadMeals,
                         child: const Text('Retry'),
                       ),
                     ],
                   ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _loadMealData,
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Meal Information',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textPrimaryColor,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Show this QR code to the organizers during meal time',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: AppTheme.textSecondaryColor,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        
-                        // QR Code Section
-                        Center(
-                          child: GlassCard(
-                            child: Column(
-                              children: [
-                                Text(
-                                  'Your Meal QR Code',
-                                  style: TextStyle(
-                                    color: AppTheme.textPrimaryColor,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Scan once per meal',
-                                  style: TextStyle(
-                                    color: AppTheme.textSecondaryColor,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(16),
-                                  ),
-                                  child: QrImageView(
-                                    data: _mealQRCode,
-                                    version: QrVersions.auto,
-                                    size: 200,
-                                    backgroundColor: Colors.white,
-                                    foregroundColor: Colors.black,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  _memberName,
-                                  style: TextStyle(
-                                    color: AppTheme.textPrimaryColor,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'QR code updates automatically',
-                                  style: TextStyle(
-                                    color: AppTheme.textSecondaryColor,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        
-                        // Meals Section
-                        const SizedBox(height: 24),
-                        Text(
-                          'Meal Schedule',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textPrimaryColor,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        if (_meals.containsKey('lunch'))
-                          _buildMealCard('lunch', _meals['lunch']),
-                        
-                        const SizedBox(height: 12),
-                        
-                        if (_meals.containsKey('dinner'))
-                          _buildMealCard('dinner', _meals['dinner']),
-                        
-                        const SizedBox(height: 12),
-                        
-                        if (_meals.containsKey('breakfast'))
-                          _buildMealCard('breakfast', _meals['breakfast']),
-                        
-                        // Info Card
-                        const SizedBox(height: 24),
-                        GlassCard(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.info_outline,
-                                    color: AppTheme.accentColor,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Important Information',
-                                    style: TextStyle(
-                                      color: AppTheme.accentColor,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '• Your QR code is unique to you. Do not share it with others.',
-                                style: TextStyle(
-                                  color: AppTheme.textSecondaryColor,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '• Each QR code can only be scanned once per meal.',
-                                style: TextStyle(
-                                  color: AppTheme.textSecondaryColor,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '• Meals are only available during the specified times.',
-                                style: TextStyle(
-                                  color: AppTheme.textSecondaryColor,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '• If you have dietary restrictions, please inform the organizers.',
-                                style: TextStyle(
-                                  color: AppTheme.textSecondaryColor,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
+              )
+            else
+              Expanded(
+                child: Column(
+                  children: [
+                    if (!_hasUserInfo) ...[
+                      _buildUserInfoForm(),
+                    ] else if (_activeMeal != null) ...[
+                      Text(
+                        'Active Meal',
+                        style: TextStyle(
+                          color: AppTheme.textPrimaryColor,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _buildMealCard(_activeMeal!),
+                    ] else ...[
+                      const Text(
+                        'No active meals at the moment',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ],
+                    
+                    if (_hasUserInfo) ...[
+                      const SizedBox(height: 24),
+                      Text(
+                        'All Meals',
+                        style: TextStyle(
+                          color: AppTheme.textPrimaryColor,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: _meals.length,
+                          itemBuilder: (context, index) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: _buildMealCard(_meals[index]),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 } 

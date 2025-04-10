@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
-import '../meal_scanner_screen.dart';  // Import the meal scanner screen
+import '../../services/meal_service.dart';
+import '../../models/meal_tracking.dart';
+import '../../services/auth_service.dart';
+import 'dart:developer' as developer;
 
 class OCFoodTab extends StatefulWidget {
   const OCFoodTab({super.key});
@@ -12,348 +18,840 @@ class OCFoodTab extends StatefulWidget {
 }
 
 class _OCFoodTabState extends State<OCFoodTab> {
-  bool _isLoading = true;
+  final MealService _mealService = MealService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final AuthService _authService = AuthService();
+  bool _isLoading = true;
+  bool _isScanning = false;
+  List<Meal> _meals = [];
+  Meal? _selectedMeal;
+  String? _error;
+  List<MealConsumption> _recentConsumptions = [];
+  MobileScannerController? _scannerController;
+  Map<String, dynamic>? _lastScanResult;
+  bool _isAuthenticated = false;
   
-  final List<Map<String, dynamic>> _mealTimes = [
-    {
-      'title': 'Test Meal',
-      'time': 'Now - 6 AM Tomorrow',
-      'status': 'Active',
-      'distributed': 0,
-      'total': 100,
-      'type': 'breakfast', // Using breakfast type for testing
-      'isTest': true,
-    },
-    {
-      'title': 'Breakfast',
-      'time': '8:00 AM - 9:30 AM',
-      'status': 'Upcoming',
-      'distributed': 0,
-      'total': 100,
-      'type': 'breakfast',
-    },
-    {
-      'title': 'Lunch',
-      'time': '1:00 PM - 2:30 PM',
-      'status': 'Upcoming',
-      'distributed': 0,
-      'total': 100,
-      'type': 'lunch',
-    },
-    {
-      'title': 'Dinner',
-      'time': '7:00 PM - 8:30 PM',
-      'status': 'Upcoming',
-      'distributed': 0,
-      'total': 100,
-      'type': 'dinner',
-    },
-    {
-      'title': 'Midnight Snack',
-      'time': '12:00 AM - 1:00 AM',
-      'status': 'Upcoming',
-      'distributed': 0,
-      'total': 100,
-      'type': 'midnight_snack',
-    },
-  ];
-
   @override
   void initState() {
     super.initState();
-    _fetchMealStats();
-    
-    // Set active meal based on current time
-    _updateActiveMeal();
+    _checkAuthAndLoadMeals();
   }
   
-  // Update which meal is currently active based on time
-  void _updateActiveMeal() {
-    final now = DateTime.now();
-    final hour = now.hour;
-    
-    // Simple logic to determine which meal is active based on time of day
-    setState(() {
-      // Skip index 0 which is the test meal (always active)
-      for (var i = 1; i < _mealTimes.length; i++) {
-        _mealTimes[i]['status'] = 'Upcoming';
-      }
-      
-      if (hour >= 6 && hour < 10) {
-        // Breakfast time: 6 AM - 10 AM
-        _mealTimes[1]['status'] = 'Active';
-      } else if (hour >= 12 && hour < 15) {
-        // Lunch time: 12 PM - 3 PM
-        _mealTimes[2]['status'] = 'Active';
-      } else if (hour >= 18 && hour < 22) {
-        // Dinner time: 6 PM - 10 PM
-        _mealTimes[3]['status'] = 'Active';
-      } else if (hour >= 0 && hour < 2) {
-        // Midnight snack: 12 AM - 2 AM
-        _mealTimes[4]['status'] = 'Active';
-      }
-    });
+  @override
+  void dispose() {
+    _scannerController?.dispose();
+    super.dispose();
   }
   
-  // Fetch meal distribution statistics from Firestore
-  Future<void> _fetchMealStats() async {
+  Future<void> _checkAuthAndLoadMeals() async {
     setState(() {
       _isLoading = true;
+      _error = null;
     });
     
     try {
-      // Query all members
-      final membersSnapshot = await _firestore.collection('members').get();
-      
-      // Initialize counters
-      final Map<String, int> mealCounts = {
-        'breakfast': 0,
-        'lunch': 0,
-        'dinner': 0,
-        'midnight_snack': 0,
-      };
-      
-      // Count served meals
-      for (var doc in membersSnapshot.docs) {
-        final memberData = doc.data();
-        if (memberData.containsKey('meals')) {
-          final meals = memberData['meals'] as Map<String, dynamic>?;
-          
-          if (meals != null) {
-            // Count standard meals
-            if (meals.containsKey('breakfast') && 
-                (meals['breakfast'] as Map<String, dynamic>)['served'] == true) {
-              mealCounts['breakfast'] = mealCounts['breakfast']! + 1;
-            }
-            
-            if (meals.containsKey('lunch') && 
-                (meals['lunch'] as Map<String, dynamic>)['served'] == true) {
-              mealCounts['lunch'] = mealCounts['lunch']! + 1;
-            }
-            
-            if (meals.containsKey('dinner') && 
-                (meals['dinner'] as Map<String, dynamic>)['served'] == true) {
-              mealCounts['dinner'] = mealCounts['dinner']! + 1;
-            }
-            
-            // Check for midnight snack if it exists
-            if (meals.containsKey('midnight_snack') && 
-                (meals['midnight_snack'] as Map<String, dynamic>?)?.containsKey('served') == true &&
-                (meals['midnight_snack'] as Map<String, dynamic>)['served'] == true) {
-              mealCounts['midnight_snack'] = mealCounts['midnight_snack']! + 1;
-            }
-          }
-        }
+      // Check if user is authenticated
+      final currentUser = await _authService.getCurrentUser();
+      if (currentUser == null) {
+        setState(() {
+          _error = 'You must be logged in to view meal information.';
+          _isLoading = false;
+          _isAuthenticated = false;
+        });
+        return;
       }
       
-      // Update meal distributions
-      setState(() {
-        for (var meal in _mealTimes) {
-          final type = meal['type'] as String;
-          if (mealCounts.containsKey(type)) {
-            meal['distributed'] = mealCounts[type]!;
-          }
-        }
-        _isLoading = false;
-      });
+      // User is authenticated, proceed with loading meals
+      _isAuthenticated = true;
+      await _loadMeals();
     } catch (e) {
-      print('Error fetching meal stats: $e');
+      developer.log('Error checking authentication: $e');
       setState(() {
+        _error = 'Error checking authentication: $e';
         _isLoading = false;
       });
     }
   }
-
-  // Navigate to meal scanner screen
-  void _navigateToMealScanner(String mealType) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => MealScannerScreen(mealType: mealType.toLowerCase()),
-      ),
-    ).then((result) {
-      // Refresh the screen when returning from the scanner
-      if (result != null && result is Map<String, dynamic> && result['refreshNeeded'] == true) {
-        _fetchMealStats();
+  
+  Future<void> _loadMeals() async {
+    // Skip if not authenticated
+    if (!_isAuthenticated) return;
+    
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    
+    try {
+      // Initialize meals (first time only)
+      await _mealService.initializeMeals();
+      
+      // Get all meals
+      final meals = await _mealService.getMeals();
+      
+      // Get currently active meal if any
+      final activeMeal = await _mealService.getActiveMeal();
+      
+      // Sort meals by start time
+      meals.sort((a, b) => a.startTime.compareTo(b.startTime));
+      
+      setState(() {
+        _meals = meals;
+        _selectedMeal = activeMeal ?? (meals.isNotEmpty ? meals.first : null);
+        _isLoading = false;
+      });
+      
+      // Load recent consumptions for the selected meal
+      if (_selectedMeal != null) {
+        _loadRecentConsumptions(_selectedMeal!.id);
       }
+      
+      // Automatically start QR scanner when tab is opened
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _startScanner();
+      });
+    } catch (e) {
+      developer.log('Error loading meals: $e');
+      setState(() {
+        _error = 'Error loading meals: $e';
+        _isLoading = false;
+      });
+    }
+  }
+  
+  Future<void> _loadRecentConsumptions(String mealId) async {
+    try {
+      // Use a different query approach that doesn't require the composite index
+      final snapshot = await _firestore
+          .collection('mealConsumptions')
+          .where('mealId', isEqualTo: mealId)
+          .get();
+      
+      // Sort in memory instead of in the query
+      final consumptions = snapshot.docs
+          .map((doc) => MealConsumption.fromJson(doc.data()))
+          .toList()
+          ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      
+      // Take only the first 10
+      final recentConsumptions = consumptions.take(10).toList();
+      
+      setState(() {
+        _recentConsumptions = recentConsumptions;
+      });
+    } catch (e) {
+      developer.log('Error loading consumptions: $e');
+      setState(() {
+        _error = 'Error loading recent consumptions: $e';
+      });
+    }
+  }
+  
+  void _startScanner() {
+    setState(() {
+      _isScanning = true;
+      _lastScanResult = null;
+      _scannerController = MobileScannerController(
+        detectionSpeed: DetectionSpeed.normal,
+        facing: CameraFacing.back,
+      );
     });
   }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
+  
+  void _stopScanner() {
+    setState(() {
+      _isScanning = false;
+      _scannerController?.dispose();
+      _scannerController = null;
+    });
+  }
+  
+  Future<void> _processScan(String? qrCode) async {
+    if (qrCode == null || _selectedMeal == null) return;
+    
+    setState(() {
+      _isLoading = true;
+      _lastScanResult = null;
+    });
+    
+    try {
+      // Decode QR data to check if it's our format
+      Map<String, dynamic> qrJson;
+      try {
+        qrJson = json.decode(qrCode);
+      } catch (e) {
+        setState(() {
+          _lastScanResult = {
+            'success': false,
+            'message': 'Invalid QR code format: Not valid JSON data.',
+          };
+          _isLoading = false;
+          _isScanning = false;
+        });
+        
+        // Stop scanner
+        _scannerController?.dispose();
+        _scannerController = null;
+        return;
+      }
+      
+      // Check if it's a meal QR code
+      if (qrJson['type'] != 'meal_qr') {
+        setState(() {
+          _lastScanResult = {
+            'success': false,
+            'message': 'Invalid QR code: This is not a meal QR code.',
+          };
+          _isLoading = false;
+          _isScanning = false;
+        });
+        
+        // Stop scanner
+        _scannerController?.dispose();
+        _scannerController = null;
+        return;
+      }
+      
+      // Process the QR code
+      final result = await _mealService.processMealQRScan(qrCode);
+      
+      setState(() {
+        _lastScanResult = result;
+        _isLoading = false;
+        _isScanning = false;
+      });
+      
+      // If successful or already consumed, refresh the recent consumptions
+      if (result['success'] == true || result['isSecondAttempt'] == true) {
+        _loadRecentConsumptions(_selectedMeal!.id);
+      }
+      
+      // Stop scanner
+      _scannerController?.dispose();
+      _scannerController = null;
+      
+    } catch (e) {
+      developer.log('Error processing QR code: $e');
+      setState(() {
+        _lastScanResult = {
+          'success': false,
+          'message': 'Error processing QR code: $e',
+        };
+        _isLoading = false;
+        _isScanning = false;
+      });
+      
+      // Stop scanner
+      _scannerController?.dispose();
+      _scannerController = null;
+    }
+  }
+  
+  Widget _buildMealStatistics() {
+    if (_selectedMeal == null) {
+      return const Center(child: Text('No meal selected'));
+    }
+    
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _mealService.getMealStatistics(_selectedMeal!.id),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              'Error loading statistics: ${snapshot.error}',
+              style: TextStyle(color: AppTheme.errorColor),
+            ),
+          );
+        }
+        
+        if (!snapshot.hasData) {
+          return const Center(child: Text('No data available'));
+        }
+        
+        final stats = snapshot.data!;
+        final total = stats['total'] as int? ?? 0;
+        
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _selectedMeal!.name,
+              style: TextStyle(
+                color: AppTheme.textPrimaryColor,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              '${DateFormat('EEEE, MMMM d, yyyy').format(_selectedMeal!.startTime)} · ${DateFormat('h:mm a').format(_selectedMeal!.startTime)} - ${DateFormat('h:mm a').format(_selectedMeal!.endTime)}',
+              style: TextStyle(
+                color: AppTheme.textSecondaryColor,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Stats Row
+            Row(
+              children: [
+                Expanded(
+                  child: GlassCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          total.toString(),
+                          style: TextStyle(
+                            color: AppTheme.accentColor,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Meals Served',
+                          style: TextStyle(
+                            color: AppTheme.textSecondaryColor,
+                            fontSize: 12,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: GlassCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          (stats['uniqueTeams'] as int? ?? 0).toString(),
+                          style: TextStyle(
+                            color: AppTheme.primaryColor,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Teams Served',
+                          style: TextStyle(
+                            color: AppTheme.textSecondaryColor,
+                            fontSize: 12,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 24),
+            
+            // Scan button
+            _isScanning
+                ? const SizedBox()
+                : Center(
+                    child: ElevatedButton.icon(
+                      onPressed: _startScanner,
+                      icon: const Icon(Icons.qr_code_scanner),
+                      label: const Text('Scan Meal QR Code'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.accentColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+            // Recent consumptions
+            if (_recentConsumptions.isNotEmpty) ...[
+              const SizedBox(height: 24),
               Text(
-                'Food Management',
+                'Recent Meals Served',
                 style: TextStyle(
                   color: AppTheme.textPrimaryColor,
-                  fontSize: 24,
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              IconButton(
-                icon: Icon(Icons.refresh, color: AppTheme.accentColor),
-                onPressed: _fetchMealStats,
-                tooltip: 'Refresh statistics',
+              const SizedBox(height: 8),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _recentConsumptions.length,
+                  itemBuilder: (context, index) {
+                    final consumption = _recentConsumptions[index];
+                    final timeAgo = _getTimeAgo(consumption.timestamp);
+                    
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: GlassCard(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.person,
+                                color: AppTheme.primaryColor,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    consumption.memberName,
+                                    style: TextStyle(
+                                      color: AppTheme.textPrimaryColor,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Team: ${consumption.teamName}',
+                                    style: TextStyle(
+                                      color: AppTheme.textSecondaryColor,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              timeAgo,
+                              style: TextStyle(
+                                color: AppTheme.textSecondaryColor,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+  
+  String _getTimeAgo(DateTime dateTime) {
+    final difference = DateTime.now().difference(dateTime);
+    
+    if (difference.inSeconds < 60) {
+      return 'Just now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}h ago';
+    } else {
+      return DateFormat('MMM d, h:mm a').format(dateTime);
+    }
+  }
+  
+  Widget _buildScanResult() {
+    if (_lastScanResult == null) {
+      return const SizedBox();
+    }
+    
+    final bool success = _lastScanResult!['success'] as bool? ?? false;
+    final bool isSecondAttempt = _lastScanResult!['isSecondAttempt'] as bool? ?? false;
+    final String message = _lastScanResult!['message'] as String? ?? 'Unknown result';
+    
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: success 
+            ? Colors.green.withOpacity(0.1) 
+            : isSecondAttempt 
+                ? Colors.orange.withOpacity(0.1)
+                : Colors.red.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: success 
+              ? Colors.green 
+              : isSecondAttempt 
+                  ? Colors.orange
+                  : Colors.red,
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(
+                success 
+                    ? Icons.check_circle 
+                    : isSecondAttempt 
+                        ? Icons.warning_amber 
+                        : Icons.error,
+                color: success 
+                    ? Colors.green 
+                    : isSecondAttempt 
+                        ? Colors.orange
+                        : Colors.red,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  success 
+                      ? 'Success!' 
+                      : isSecondAttempt 
+                          ? 'Warning'
+                          : 'Error',
+                  style: TextStyle(
+                    color: success 
+                        ? Colors.green 
+                        : isSecondAttempt 
+                            ? Colors.orange
+                            : Colors.red,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
-            'Track and manage food distribution',
+            message,
             style: TextStyle(
-              color: AppTheme.textSecondaryColor,
-              fontSize: 16,
+              color: AppTheme.textPrimaryColor,
             ),
           ),
-          const SizedBox(height: 24),
-          
-          // Meal time cards
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    itemCount: _mealTimes.length,
-                    itemBuilder: (context, index) {
-                      final meal = _mealTimes[index];
-                      final progress = meal['distributed'] / meal['total'];
-                      final isActive = meal['status'] == 'Active';
-                      
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16.0),
-                        child: GlassCard(
+          if (success || isSecondAttempt) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Member: ${_lastScanResult!['memberName'] ?? 'Unknown'}',
+              style: TextStyle(
+                color: AppTheme.textSecondaryColor,
+              ),
+            ),
+            Text(
+              'Team: ${_lastScanResult!['teamName'] ?? 'Unknown Team'}',
+              style: TextStyle(
+                color: AppTheme.textSecondaryColor,
+              ),
+            ),
+          ],
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () {
+              setState(() {
+                _lastScanResult = null;
+              });
+              _startScanner();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: success 
+                  ? Colors.green 
+                  : isSecondAttempt 
+                      ? Colors.orange
+                      : Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Scan Again'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Text(
+              'Food Management',
+              style: TextStyle(
+                color: AppTheme.textPrimaryColor,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Track and manage meal distribution',
+              style: TextStyle(
+                color: AppTheme.textSecondaryColor,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Main content
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                      ? Center(
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    meal['title'],
-                                    style: TextStyle(
-                                      color: AppTheme.textPrimaryColor,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isActive
-                                          ? AppTheme.accentColor.withOpacity(0.2)
-                                          : AppTheme.primaryColor.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      meal['status'],
-                                      style: TextStyle(
-                                        color: isActive
-                                            ? AppTheme.accentColor
-                                            : AppTheme.primaryColor,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                              Icon(
+                                Icons.error_outline,
+                                color: AppTheme.errorColor,
+                                size: 48,
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 16),
                               Text(
-                                meal['time'],
+                                _error!,
                                 style: TextStyle(
                                   color: AppTheme.textSecondaryColor,
-                                  fontSize: 14,
+                                  fontSize: 16,
                                 ),
+                                textAlign: TextAlign.center,
                               ),
-                              const SizedBox(height: 16),
-                              
-                              // Progress bar
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'Food Distribution',
-                                        style: TextStyle(
-                                          color: AppTheme.textSecondaryColor,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                      Text(
-                                        '${meal['distributed']}/${meal['total']}',
-                                        style: TextStyle(
-                                          color: AppTheme.textPrimaryColor,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(10),
-                                    child: LinearProgressIndicator(
-                                      value: progress,
-                                      minHeight: 10,
-                                      backgroundColor: AppTheme.cardColor,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        isActive ? AppTheme.accentColor : AppTheme.primaryColor,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              
-                              const SizedBox(height: 16),
-                              
-                              // Action buttons
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    isActive ? 'Ready to scan' : 'Waiting for time slot',
-                                    style: TextStyle(
-                                      color: isActive ? Colors.green : AppTheme.textSecondaryColor,
-                                      fontStyle: isActive ? FontStyle.normal : FontStyle.italic,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  ElevatedButton.icon(
-                                    onPressed: isActive 
-                                      ? () => _navigateToMealScanner(meal['type'])
-                                      : null,
-                                    icon: Icon(Icons.qr_code_scanner),
-                                    label: Text('Scan QR'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppTheme.primaryColor,
-                                      foregroundColor: Colors.white,
-                                      disabledBackgroundColor: AppTheme.cardColor,
-                                      disabledForegroundColor: AppTheme.textSecondaryColor,
-                                    ),
-                                  ),
-                                ],
+                              const SizedBox(height: 24),
+                              ElevatedButton(
+                                onPressed: _checkAuthAndLoadMeals,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.accentColor,
+                                ),
+                                child: const Text('Retry'),
                               ),
                             ],
                           ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
+                        )
+                      : _isScanning
+                          ? Column(
+                              children: [
+                                // Show active meal text when scanning
+                                if (_selectedMeal != null) ...[
+                                  Text(
+                                    'Active Meal: ${_selectedMeal!.name}',
+                                    style: TextStyle(
+                                      color: AppTheme.accentColor,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                ],
+                                Expanded(
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: MobileScanner(
+                                      controller: _scannerController!,
+                                      onDetect: (capture) {
+                                        final barcodes = capture.barcodes;
+                                        if (barcodes.isNotEmpty && barcodes.first.rawValue != null) {
+                                          _processScan(barcodes.first.rawValue);
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Center(
+                                  child: Text(
+                                    'Scanning for meal QR codes...',
+                                    style: TextStyle(
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                ElevatedButton(
+                                  onPressed: _stopScanner,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  child: const Text('Cancel'),
+                                ),
+                              ],
+                            )
+                          : _lastScanResult != null
+                              ? Column(
+                                  children: [
+                                    _buildScanResult(),
+                                    
+                                    // Meal selection tabs after scan result
+                                    if (_meals.isNotEmpty) ...[
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        'Select Meal',
+                                        style: TextStyle(
+                                          color: AppTheme.textPrimaryColor,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      SizedBox(
+                                        height: 48,
+                                        child: ListView.builder(
+                                          scrollDirection: Axis.horizontal,
+                                          itemCount: _meals.length,
+                                          itemBuilder: (context, index) {
+                                            final meal = _meals[index];
+                                            final isSelected = _selectedMeal?.id == meal.id;
+                                            
+                                            return Padding(
+                                              padding: const EdgeInsets.only(right: 8),
+                                              child: InkWell(
+                                                onTap: () {
+                                                  setState(() {
+                                                    _selectedMeal = meal;
+                                                  });
+                                                  _loadRecentConsumptions(meal.id);
+                                                },
+                                                borderRadius: BorderRadius.circular(24),
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(
+                                                    horizontal: 16,
+                                                    vertical: 8,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: isSelected
+                                                        ? AppTheme.primaryColor
+                                                        : AppTheme.primaryColor.withOpacity(0.1),
+                                                    borderRadius: BorderRadius.circular(24),
+                                                  ),
+                                                  child: Center(
+                                                    child: Text(
+                                                      meal.name,
+                                                      style: TextStyle(
+                                                        color: isSelected
+                                                            ? Colors.white
+                                                            : AppTheme.textPrimaryColor,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                    
+                                    Expanded(child: _buildMealStatistics()),
+                                  ],
+                                )
+                              : Column(
+                                  children: [
+                                    // Meal selection tabs
+                                    if (_meals.isNotEmpty) ...[
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        'Select Meal',
+                                        style: TextStyle(
+                                          color: AppTheme.textPrimaryColor,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      SizedBox(
+                                        height: 48,
+                                        child: ListView.builder(
+                                          scrollDirection: Axis.horizontal,
+                                          itemCount: _meals.length,
+                                          itemBuilder: (context, index) {
+                                            final meal = _meals[index];
+                                            final isSelected = _selectedMeal?.id == meal.id;
+                                            
+                                            return Padding(
+                                              padding: const EdgeInsets.only(right: 8),
+                                              child: InkWell(
+                                                onTap: () {
+                                                  setState(() {
+                                                    _selectedMeal = meal;
+                                                  });
+                                                  _loadRecentConsumptions(meal.id);
+                                                },
+                                                borderRadius: BorderRadius.circular(24),
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(
+                                                    horizontal: 16,
+                                                    vertical: 8,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: isSelected
+                                                        ? AppTheme.primaryColor
+                                                        : AppTheme.primaryColor.withOpacity(0.1),
+                                                    borderRadius: BorderRadius.circular(24),
+                                                  ),
+                                                  child: Center(
+                                                    child: Text(
+                                                      meal.name,
+                                                      style: TextStyle(
+                                                        color: isSelected
+                                                            ? Colors.white
+                                                            : AppTheme.textPrimaryColor,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                    
+                                    // Start QR scan button prominently displayed
+                                    const SizedBox(height: 24),
+                                    Center(
+                                      child: ElevatedButton.icon(
+                                        onPressed: _startScanner,
+                                        icon: const Icon(Icons.qr_code_scanner, size: 28),
+                                        label: const Text('Scan Meal QR Code', style: TextStyle(fontSize: 16)),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppTheme.accentColor,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 32,
+                                            vertical: 16,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    
+                                    Expanded(child: _buildMealStatistics()),
+                                  ],
+                                ),
+            ),
+          ],
+        ),
       ),
     );
   }
