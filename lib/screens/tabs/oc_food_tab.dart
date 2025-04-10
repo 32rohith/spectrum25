@@ -111,6 +111,63 @@ class _OCFoodTabState extends State<OCFoodTab> {
     }
   }
   
+  // Reset and refresh meals for testing
+  Future<void> _resetAndRefreshMeals() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    
+    try {
+      // Reset and reinitialize the meals
+      await _mealService.resetAndReinitializeMeals();
+      
+      // Reload all meals
+      final meals = await _mealService.getMeals();
+      
+      // Get currently active meal
+      final activeMeal = await _mealService.getActiveMeal();
+      
+      // Sort meals by start time
+      meals.sort((a, b) => a.startTime.compareTo(b.startTime));
+      
+      setState(() {
+        _meals = meals;
+        _selectedMeal = activeMeal ?? (meals.isNotEmpty ? meals.first : null);
+        _isLoading = false;
+      });
+      
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Meals have been reset and refreshed successfully!'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      
+      // Load recent consumptions for the selected meal if available
+      if (_selectedMeal != null) {
+        _loadRecentConsumptions(_selectedMeal!.id);
+      }
+    } catch (e) {
+      developer.log('Error resetting meals: $e');
+      setState(() {
+        _error = 'Error resetting meals: $e';
+        _isLoading = false;
+      });
+      
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error resetting meals: $e'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+  
   void _startScanner() {
     setState(() {
       _isScanning = true;
@@ -809,52 +866,63 @@ class _OCFoodTabState extends State<OCFoodTab> {
                                         ),
                                       ),
                                       const SizedBox(height: 8),
-                                      SizedBox(
-                                        height: 48,
-                                        child: ListView.builder(
-                                          scrollDirection: Axis.horizontal,
-                                          itemCount: _meals.length,
-                                          itemBuilder: (context, index) {
-                                            final meal = _meals[index];
-                                            final isSelected = _selectedMeal?.id == meal.id;
-                                            
-                                            return Padding(
-                                              padding: const EdgeInsets.only(right: 8),
-                                              child: InkWell(
-                                                onTap: () {
-                                                  setState(() {
-                                                    _selectedMeal = meal;
-                                                  });
-                                                  _loadRecentConsumptions(meal.id);
-                                                },
-                                                borderRadius: BorderRadius.circular(24),
-                                                child: Container(
-                                                  padding: const EdgeInsets.symmetric(
-                                                    horizontal: 16,
-                                                    vertical: 8,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    color: isSelected
-                                                        ? AppTheme.primaryColor
-                                                        : AppTheme.primaryColor.withOpacity(0.1),
-                                                    borderRadius: BorderRadius.circular(24),
-                                                  ),
-                                                  child: Center(
-                                                    child: Text(
-                                                      meal.name,
-                                                      style: TextStyle(
-                                                        color: isSelected
-                                                            ? Colors.white
-                                                            : AppTheme.textPrimaryColor,
-                                                        fontWeight: FontWeight.bold,
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: SizedBox(
+                                              height: 48,
+                                              child: ListView.builder(
+                                                scrollDirection: Axis.horizontal,
+                                                itemCount: _meals.length,
+                                                itemBuilder: (context, index) {
+                                                  final meal = _meals[index];
+                                                  final isSelected = _selectedMeal?.id == meal.id;
+                                                  
+                                                  return Padding(
+                                                    padding: const EdgeInsets.only(right: 8),
+                                                    child: InkWell(
+                                                      onTap: () {
+                                                        setState(() {
+                                                          _selectedMeal = meal;
+                                                        });
+                                                        _loadRecentConsumptions(meal.id);
+                                                      },
+                                                      borderRadius: BorderRadius.circular(24),
+                                                      child: Container(
+                                                        padding: const EdgeInsets.symmetric(
+                                                          horizontal: 16,
+                                                          vertical: 8,
+                                                        ),
+                                                        decoration: BoxDecoration(
+                                                          color: isSelected
+                                                              ? AppTheme.primaryColor
+                                                              : AppTheme.primaryColor.withOpacity(0.1),
+                                                          borderRadius: BorderRadius.circular(24),
+                                                        ),
+                                                        child: Center(
+                                                          child: Text(
+                                                            meal.name,
+                                                            style: TextStyle(
+                                                              color: isSelected
+                                                                  ? Colors.white
+                                                                  : AppTheme.textPrimaryColor,
+                                                              fontWeight: FontWeight.bold,
+                                                            ),
+                                                          ),
+                                                        ),
                                                       ),
                                                     ),
-                                                  ),
-                                                ),
+                                                  );
+                                                },
                                               ),
-                                            );
-                                          },
-                                        ),
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: Icon(Icons.refresh, color: AppTheme.primaryColor),
+                                            tooltip: 'Reset & refresh meals',
+                                            onPressed: _resetAndRefreshMeals,
+                                          ),
+                                        ],
                                       ),
                                     ],
                                     
@@ -875,52 +943,63 @@ class _OCFoodTabState extends State<OCFoodTab> {
                                         ),
                                       ),
                                       const SizedBox(height: 8),
-                                      SizedBox(
-                                        height: 48,
-                                        child: ListView.builder(
-                                          scrollDirection: Axis.horizontal,
-                                          itemCount: _meals.length,
-                                          itemBuilder: (context, index) {
-                                            final meal = _meals[index];
-                                            final isSelected = _selectedMeal?.id == meal.id;
-                                            
-                                            return Padding(
-                                              padding: const EdgeInsets.only(right: 8),
-                                              child: InkWell(
-                                                onTap: () {
-                                                  setState(() {
-                                                    _selectedMeal = meal;
-                                                  });
-                                                  _loadRecentConsumptions(meal.id);
-                                                },
-                                                borderRadius: BorderRadius.circular(24),
-                                                child: Container(
-                                                  padding: const EdgeInsets.symmetric(
-                                                    horizontal: 16,
-                                                    vertical: 8,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    color: isSelected
-                                                        ? AppTheme.primaryColor
-                                                        : AppTheme.primaryColor.withOpacity(0.1),
-                                                    borderRadius: BorderRadius.circular(24),
-                                                  ),
-                                                  child: Center(
-                                                    child: Text(
-                                                      meal.name,
-                                                      style: TextStyle(
-                                                        color: isSelected
-                                                            ? Colors.white
-                                                            : AppTheme.textPrimaryColor,
-                                                        fontWeight: FontWeight.bold,
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: SizedBox(
+                                              height: 48,
+                                              child: ListView.builder(
+                                                scrollDirection: Axis.horizontal,
+                                                itemCount: _meals.length,
+                                                itemBuilder: (context, index) {
+                                                  final meal = _meals[index];
+                                                  final isSelected = _selectedMeal?.id == meal.id;
+                                                  
+                                                  return Padding(
+                                                    padding: const EdgeInsets.only(right: 8),
+                                                    child: InkWell(
+                                                      onTap: () {
+                                                        setState(() {
+                                                          _selectedMeal = meal;
+                                                        });
+                                                        _loadRecentConsumptions(meal.id);
+                                                      },
+                                                      borderRadius: BorderRadius.circular(24),
+                                                      child: Container(
+                                                        padding: const EdgeInsets.symmetric(
+                                                          horizontal: 16,
+                                                          vertical: 8,
+                                                        ),
+                                                        decoration: BoxDecoration(
+                                                          color: isSelected
+                                                              ? AppTheme.primaryColor
+                                                              : AppTheme.primaryColor.withOpacity(0.1),
+                                                          borderRadius: BorderRadius.circular(24),
+                                                        ),
+                                                        child: Center(
+                                                          child: Text(
+                                                            meal.name,
+                                                            style: TextStyle(
+                                                              color: isSelected
+                                                                  ? Colors.white
+                                                                  : AppTheme.textPrimaryColor,
+                                                              fontWeight: FontWeight.bold,
+                                                            ),
+                                                          ),
+                                                        ),
                                                       ),
                                                     ),
-                                                  ),
-                                                ),
+                                                  );
+                                                },
                                               ),
-                                            );
-                                          },
-                                        ),
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: Icon(Icons.refresh, color: AppTheme.primaryColor),
+                                            tooltip: 'Reset & refresh meals',
+                                            onPressed: _resetAndRefreshMeals,
+                                          ),
+                                        ],
                                       ),
                                     ],
                                     

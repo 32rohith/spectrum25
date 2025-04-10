@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
+import '../../services/meal_service.dart';
 
 class OCTeamsTab extends StatefulWidget {
   const OCTeamsTab({super.key});
@@ -526,10 +527,10 @@ class TeamDetailsDialog extends StatefulWidget {
   final String teamName;
 
   const TeamDetailsDialog({
-    super.key,
+    Key? key,
     required this.teamId,
     required this.teamName,
-  });
+  }) : super(key: key);
 
   @override
   _TeamDetailsDialogState createState() => _TeamDetailsDialogState();
@@ -537,12 +538,11 @@ class TeamDetailsDialog extends StatefulWidget {
 
 class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  Map<String, dynamic>? _teamData;
-  List<Map<String, dynamic>> _membersList = [];
+  final MealService _mealService = MealService();
   bool _isLoading = true;
-  bool _isSaving = false;
-  bool _hasChanges = false;
-  String? _errorMessage;
+  bool _isSendingQR = false;
+  Map<String, dynamic>? _teamData;
+  String? _error;
 
   @override
   void initState() {
@@ -551,142 +551,66 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
   }
 
   Future<void> _loadTeamDetails() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
     try {
       final teamDoc = await _firestore.collection('teams').doc(widget.teamId).get();
-      if (!teamDoc.exists) {
-        throw Exception('Team document not found');
+      if (teamDoc.exists) {
+        setState(() {
+          _teamData = teamDoc.data();
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _error = 'Team not found';
+          _isLoading = false;
+        });
       }
-
-      final teamData = teamDoc.data() ?? {};
-      
-      // Get leader data
-      Map<String, dynamic> leader = {};
-      if (teamData.containsKey('leader') && teamData['leader'] is Map) {
-        leader = Map<String, dynamic>.from(teamData['leader'] as Map);
-      }
-      
-      // Get members data
-      List<Map<String, dynamic>> members = [];
-      if (teamData.containsKey('members')) {
-        if (teamData['members'] is List) {
-          final rawMembers = teamData['members'] as List;
-          for (final rawMember in rawMembers) {
-            if (rawMember is Map) {
-              try {
-                members.add(Map<String, dynamic>.from(rawMember));
-              } catch (e) {
-                members.add({'name': rawMember is Map ? rawMember['name'] ?? 'Unknown' : 'Unknown'});
-              }
-            } else if (rawMember != null) {
-              members.add({'name': 'Unknown Member'});
-            }
-          }
-        } else if (teamData['members'] is Map) {
-          try {
-            members = [Map<String, dynamic>.from(teamData['members'] as Map)];
-          } catch (e) {
-            members = [{'name': 'Unknown Member'}];
-          }
-        }
-      }
-      
-      // Convert to list of members including the leader
-      final membersList = <Map<String, dynamic>>[];
-      
-      // Add leader with role
-      leader['role'] = 'Team Leader';
-      if (!leader.containsKey('isVerified')) {
-        leader['isVerified'] = false;
-      }
-      membersList.add(leader);
-      
-      // Add members with roles
-      for (var i = 0; i < members.length; i++) {
-        final Map<String, dynamic> member = members[i] is Map ? 
-                                    Map<String, dynamic>.from(members[i]) : 
-                                    {'name': 'Unknown Member ${i+1}'};
-        
-        member['role'] = 'Member ${i + 1}';
-        if (!member.containsKey('isVerified')) {
-          member['isVerified'] = false;
-        }
-        membersList.add(member);
-      }
-      
-      setState(() {
-        _teamData = teamData;
-        _membersList = membersList;
-        _isLoading = false;
-        _hasChanges = false;
-      });
     } catch (e) {
-      print('Error loading team details: $e');
       setState(() {
+        _error = 'Error loading team: $e';
         _isLoading = false;
-        _errorMessage = 'Error loading team details: $e';
       });
     }
   }
   
-  void _updateMemberVerification(int index, bool value) {
+  // Function to send QR codes to all iOS team members
+  Future<void> _sendQRCodesToIOSUsers() async {
     setState(() {
-      _membersList[index]['isVerified'] = value;
-      _hasChanges = true;
-    });
-  }
-  
-  Future<void> _saveChanges() async {
-    if (!_hasChanges) return;
-    
-    setState(() {
-      _isSaving = true;
+      _isSendingQR = true;
     });
     
     try {
-      final teamDoc = await _firestore.collection('teams').doc(widget.teamId).get();
-      if (!teamDoc.exists) {
-        throw Exception('Team document not found');
-      }
+      final result = await _mealService.sendQRCodeToAllTeamIOSMembers(widget.teamId);
       
-      final teamData = Map<String, dynamic>.from(teamDoc.data() ?? {});
-      
-      // Update leader verification status
-      final leaderVerified = _membersList[0]['isVerified'] ?? false;
-      
-      if (teamData.containsKey('leader') && teamData['leader'] is Map) {
-        final leaderData = Map<String, dynamic>.from(teamData['leader'] as Map);
-        leaderData['isVerified'] = leaderVerified;
-        teamData['leader'] = leaderData;
-      }
-      
-      // Update members verification status
-      if (teamData.containsKey('members') && teamData['members'] is List) {
-        final members = List<Map<String, dynamic>>.from(teamData['members'] as List);
-        for (var i = 1; i < _membersList.length; i++) {
-          if (i - 1 < members.length) {
-            members[i - 1]['isVerified'] = _membersList[i]['isVerified'] ?? false;
-          }
-        }
-        teamData['members'] = members;
-      }
-      
-      // Update team verification status
-      teamData['isVerified'] = _membersList.every((member) => member['isVerified'] == true);
-      
-      await _firestore.collection('teams').doc(widget.teamId).update(teamData);
-      
-      setState(() {
-        _isSaving = false;
-        _hasChanges = false;
-      });
-      
-      if (mounted) {
-        Navigator.of(context).pop();
+      if (result['success']) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('QR codes sent to ${result['sent']} iOS users. Failed: ${result['failed']}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${result['message']}'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error sending QR codes: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
       setState(() {
-        _isSaving = false;
-        _errorMessage = 'Error saving changes: $e';
+        _isSendingQR = false;
       });
     }
   }
@@ -696,113 +620,193 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
     return AlertDialog(
       backgroundColor: AppTheme.backgroundColor,
       title: Text(
-        widget.teamName, 
-        style: TextStyle(color: AppTheme.textPrimaryColor),
+        widget.teamName,
+        style: TextStyle(
+          color: AppTheme.textPrimaryColor,
+          fontWeight: FontWeight.bold,
+        ),
       ),
-      content: SizedBox(
+      content: Container(
         width: double.maxFinite,
-        height: 350,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.6,
+        ),
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _errorMessage != null
+            ? Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
+            : _error != null
                 ? Center(
                     child: Text(
-                      _errorMessage!,
+                      _error!,
                       style: TextStyle(color: AppTheme.errorColor),
                     ),
                   )
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Team Members',
-                                style: TextStyle(
-                                  color: AppTheme.textPrimaryColor,
-                                  fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                      Text(
-                        'Verify individual team members by checking/unchecking the boxes.',
-                        style: TextStyle(
-                          color: AppTheme.textSecondaryColor,
-                          fontSize: 12,
+                : SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Team Leaders Section
+                        const SizedBox(height: 16),
+                        Text(
+                          'Team Leader',
+                          style: TextStyle(
+                            color: AppTheme.accentColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      Expanded(
-                        child: ListView.builder(
-                          itemCount: _membersList.length,
-                          itemBuilder: (context, index) {
-                            final member = _membersList[index];
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 8),
-                                  child: Row(
-                                    children: [
-                                  Checkbox(
-                                    value: member['isVerified'] ?? false,
-                                    onChanged: (value) => _updateMemberVerification(index, value ?? false),
-                                    activeColor: AppTheme.accentColor,
-                                      ),
-                                      const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                      Text(
-                                          member['name'] ?? 'Unknown',
-                                        style: TextStyle(
-                                            color: AppTheme.textPrimaryColor,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      Text(
-                                          member['role'] ?? 'Member',
-                                        style: TextStyle(
-                                          color: AppTheme.textSecondaryColor,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                    ),
-                                  ),
-                                ],
+                        const SizedBox(height: 8),
+                        // Display leader info
+                        if (_teamData?['leader'] != null) ...[
+                          _buildMemberCard(_teamData!['leader'] as Map<String, dynamic>, isLeader: true),
+                        ] else ...[
+                          Text(
+                            'No leader information',
+                            style: TextStyle(color: AppTheme.textSecondaryColor),
+                          ),
+                        ],
+
+                        // Team Members Section
+                        const SizedBox(height: 24),
+                        Text(
+                          'Team Members',
+                          style: TextStyle(
+                            color: AppTheme.accentColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
-                      );
-                    },
+                        const SizedBox(height: 8),
+                        // Display members info
+                        if (_teamData?['members'] != null &&
+                            _teamData!['members'] is List &&
+                            (_teamData!['members'] as List).isNotEmpty) ...[
+                          ...(_teamData!['members'] as List).map((member) => _buildMemberCard(member as Map<String, dynamic>)),
+                        ] else ...[
+                          Text(
+                            'No team members',
+                            style: TextStyle(color: AppTheme.textSecondaryColor),
+                          ),
+                        ],
+                        
+                        // Actions section
+                        const SizedBox(height: 20),
+                        Divider(color: AppTheme.glassBorderColor),
+                        const SizedBox(height: 12),
+                        
+                        // Send QR codes to iOS users button
+                        Center(
+                          child: ElevatedButton.icon(
+                            icon: Icon(_isSendingQR ? Icons.hourglass_empty : Icons.qr_code),
+                            label: Text(_isSendingQR ? 'Sending...' : 'Send QR to iOS Users'),
+                            onPressed: _isSendingQR ? null : _sendQRCodesToIOSUsers,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.accentColor,
+                              foregroundColor: Colors.white,
+                              disabledBackgroundColor: AppTheme.accentColor.withOpacity(0.5),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-          ),
-        ],
-      ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: Text(
-            'Cancel',
-            style: TextStyle(color: AppTheme.textSecondaryColor),
+            'Close',
+            style: TextStyle(color: AppTheme.primaryColor),
           ),
-        ),
-        ElevatedButton(
-          onPressed: _isSaving ? null : _saveChanges,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.accentColor,
-            disabledBackgroundColor: AppTheme.accentColor.withOpacity(0.5),
-          ),
-          child: _isSaving
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                )
-              : const Text('Save Changes'),
         ),
       ],
+    );
+  }
+
+  Widget _buildMemberCard(Map<String, dynamic> member, {bool isLeader = false}) {
+    final name = member['name'] ?? 'Unknown';
+    final email = member['email'] ?? 'No email';
+    final phone = member['phone'] ?? 'No phone';
+    final isIOS = member['device'] == 'iOS';
+    
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: AppTheme.cardColor.withOpacity(0.3),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: AppTheme.glassBorderColor),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  isLeader ? Icons.star : Icons.person,
+                  color: isLeader ? Colors.amber : AppTheme.accentColor,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    name,
+                    style: TextStyle(
+                      color: AppTheme.textPrimaryColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                if (isIOS)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.phone_iphone,
+                          color: Colors.blue,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'iOS',
+                          style: TextStyle(
+                            color: Colors.blue,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Email: $email',
+              style: TextStyle(
+                color: AppTheme.textSecondaryColor,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Phone: $phone',
+              style: TextStyle(
+                color: AppTheme.textSecondaryColor,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 } 

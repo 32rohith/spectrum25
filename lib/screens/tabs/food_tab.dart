@@ -6,6 +6,8 @@ import '../../widgets/common_widgets.dart';
 import '../../models/meal_tracking.dart';
 import '../../services/meal_service.dart';
 import 'dart:developer' as developer;
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart';
 
 class FoodTab extends StatefulWidget {
   const FoodTab({super.key});
@@ -163,6 +165,19 @@ class _FoodTabState extends State<FoodTab> {
         
         developer.log('Using existing QR code with stored secret for member');
       }
+      
+      // Check if this is an iOS user without an email
+      if (Platform.isIOS && 
+          memberData['device'] == 'iOS' && 
+          (memberData['email'] == null || memberData['email'] == '') &&
+          memberData['qrSentByEmail'] != true) {
+        // Show dialog to collect email after a short delay
+        Future.delayed(Duration(milliseconds: 500), () {
+          if (mounted) {
+            _showEmailDialog();
+          }
+        });
+      }
     } catch (e) {
       developer.log('Error ensuring member has QR code: $e');
       
@@ -210,6 +225,8 @@ class _FoodTabState extends State<FoodTab> {
           'isDinnerConsumed': false,
           'isTestMealConsumed': false,
           'createdAt': FieldValue.serverTimestamp(),
+          'device': Platform.isIOS ? 'iOS' : 'Android',
+          'email': '', // Will be populated if iOS user
         };
         
         // Save initial document
@@ -227,6 +244,12 @@ class _FoodTabState extends State<FoodTab> {
           _qrData = qrData;
         });
         
+        // If iOS device, ask for email and send QR code
+        if (Platform.isIOS) {
+          // Show dialog to collect email
+          _showEmailDialog();
+        }
+        
         developer.log('Created new member with QR code');
       }
     } catch (e) {
@@ -241,6 +264,97 @@ class _FoodTabState extends State<FoodTab> {
       setState(() {
         _qrData = qrData;
       });
+    }
+  }
+  
+  // Show email collection dialog for iOS users
+  void _showEmailDialog() {
+    final TextEditingController emailController = TextEditingController();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Email Required'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'For iOS users, we need your email to send your permanent QR code.',
+                style: TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'Email Address',
+                  hintText: 'Enter your email',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Skip'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (emailController.text.isNotEmpty) {
+                  _saveEmailAndSendQR(emailController.text);
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('Submit'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+  
+  // Save member email and send QR code
+  Future<void> _saveEmailAndSendQR(String email) async {
+    try {
+      // Update member document with email
+      await _firestore.collection('members').doc(_memberId).update({
+        'email': email,
+      });
+      
+      // Send QR code via email
+      await _mealService.sendQRCodeByEmail(
+        _memberId,
+        _memberName,
+        _teamName,
+        email,
+        _qrData
+      );
+      
+      setState(() {
+        _memberData = {..._memberData, 'email': email};
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('QR code sent to your email'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      
+      developer.log('Email saved and QR code sent: $email');
+    } catch (e) {
+      developer.log('Error saving email or sending QR: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error sending QR code: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
   
@@ -304,8 +418,10 @@ class _FoodTabState extends State<FoodTab> {
   }
   
   Widget _buildMealCard(Meal meal) {
-    final bool isActive = meal.isCurrentlyActive;
-    final bool isPast = DateTime.now().isAfter(meal.endTime);
+    final DateTime now = DateTime.now();
+    final bool isActive = now.isAfter(meal.startTime) && now.isBefore(meal.endTime);
+    final bool isPast = now.isAfter(meal.endTime);
+    final bool isUpcoming = now.isBefore(meal.startTime);
     final bool hasConsumed = _hasMemberConsumedMeal(meal.id);
     
     return GlassCard(
@@ -413,6 +529,99 @@ class _FoodTabState extends State<FoodTab> {
     );
   }
   
+  // Refresh meal status without resetting
+  Future<void> _refreshMealStatus() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      // Get all meals
+      final meals = await _mealService.getMeals();
+      
+      // Get active meal if any
+      final activeMeal = await _mealService.getActiveMeal();
+      
+      setState(() {
+        _meals = meals;
+        _activeMeal = activeMeal;
+        _isLoading = false;
+      });
+      
+      // Show confirmation
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Meal status refreshed'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      developer.log('Error refreshing meals: $e');
+      setState(() {
+        _errorMessage = 'Error refreshing meals: $e';
+        _isLoading = false;
+      });
+    }
+  }
+  
+  // Resend QR code email
+  Future<void> _resendQRCodeEmail() async {
+    try {
+      // Check if we have an email on file
+      if (_memberData['email'] == null || _memberData['email'] == '') {
+        _showEmailDialog();
+        return;
+      }
+      
+      // Resend the QR code to the existing email
+      final email = _memberData['email'];
+      
+      // Show loading indicator
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sending QR code to your email...'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+      
+      // Send QR code via email
+      final success = await _mealService.sendQRCodeByEmail(
+        _memberId,
+        _memberName,
+        _teamName,
+        email,
+        _qrData
+      );
+      
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('QR code resent to your email'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to send QR code email'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      
+      developer.log('QR code resent to email: $email');
+    } catch (e) {
+      developer.log('Error resending QR code email: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error sending QR code: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -427,13 +636,23 @@ class _FoodTabState extends State<FoodTab> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Your QR Code (Always visible)
-                        Text(
-                          'Your QR Code',
-                          style: TextStyle(
-                            color: AppTheme.textPrimaryColor,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Your QR Code',
+                              style: TextStyle(
+                                color: AppTheme.textPrimaryColor,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.refresh),
+                              tooltip: 'Refresh meal status',
+                              onPressed: _refreshMealStatus,
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 8),
                         Text(
@@ -496,6 +715,34 @@ class _FoodTabState extends State<FoodTab> {
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
+                                if (Platform.isIOS && (_memberData['email'] == null || _memberData['email'] == '')) ...[
+                                  const SizedBox(height: 8),
+                                  TextButton(
+                                    onPressed: _showEmailDialog,
+                                    child: const Text('Send QR code to my email'),
+                                  ),
+                                ],
+                                if (Platform.isIOS && _memberData['email'] != null && _memberData['email'] != '') ...[
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.email, size: 14, color: Colors.blue),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Sent to: ${_memberData['email']}',
+                                        style: TextStyle(
+                                          color: AppTheme.textSecondaryColor,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  TextButton(
+                                    onPressed: _resendQRCodeEmail,
+                                    child: const Text('Resend to my email'),
+                                  ),
+                                ],
                               ],
                             ),
                           ),

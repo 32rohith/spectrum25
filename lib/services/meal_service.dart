@@ -4,9 +4,12 @@ import '../models/meal_tracking.dart';
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import 'dart:developer' as developer;
+import 'dart:io' show Platform;
+import './email_service.dart';
 
 class MealService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final EmailService _emailService = EmailService();
   
   // Initialize the meals in the database - typically called once during app setup
   Future<void> initializeMeals() async {
@@ -48,6 +51,13 @@ class MealService {
           endTime: DateTime.now().add(Duration(days: 1, hours: 6)), // Until tomorrow 6 hours from now
           isActive: true,
         ),
+        Meal(
+          id: 'quick_test',
+          name: 'Quick Test Meal (11:45-11:55)',
+          startTime: _createTimeToday(11, 45), // 11:45 today
+          endTime: _createTimeToday(11, 55),   // 11:55 today
+          isActive: false, // Don't force active, let time determine
+        ),
       ];
       
       // Add meals to database
@@ -62,6 +72,12 @@ class MealService {
       developer.log('Error initializing meals: $e');
       throw Exception('Failed to initialize meals: $e');
     }
+  }
+  
+  // Helper method to create a DateTime for today at a specific hour and minute
+  DateTime _createTimeToday(int hour, int minute) {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day, hour, minute);
   }
   
   // Generate a unique QR code for a member and meal
@@ -332,9 +348,10 @@ class MealService {
     // Generate a unique QR secret
     final qrSecret = _generateQRSecret();
     
-    // Update member document with the QR secret
+    // Update member document with the QR secret and device info
     await _firestore.collection('members').doc(memberId).update({
       'qrSecret': qrSecret,
+      'device': Platform.isIOS ? 'iOS' : 'Android',
     });
     
     // Generate QR code using the member information and the secret
@@ -608,5 +625,221 @@ class MealService {
     final Random random = Random.secure();
     final List<int> values = List<int>.generate(32, (i) => random.nextInt(256));
     return base64Url.encode(values);
+  }
+  
+  // Reset and reinitialize meals for testing purposes
+  Future<void> resetAndReinitializeMeals() async {
+    try {
+      // First delete all existing meals
+      final mealsSnapshot = await _firestore.collection('meals').get();
+      final batch = _firestore.batch();
+      
+      for (var doc in mealsSnapshot.docs) {
+        batch.delete(_firestore.collection('meals').doc(doc.id));
+      }
+      
+      await batch.commit();
+      developer.log('Existing meals deleted');
+      
+      // Then reinitialize with fresh data
+      await initializeMeals();
+      developer.log('Meals reinitialized successfully');
+    } catch (e) {
+      developer.log('Error resetting meals: $e');
+      throw Exception('Failed to reset meals: $e');
+    }
+  }
+
+  // Send QR code to member's email (for iOS users)
+  Future<bool> sendQRCodeByEmail(
+    String memberId,
+    String memberName,
+    String teamName,
+    String email,
+    String qrData
+  ) async {
+    try {
+      developer.log('Sending QR code email to $email for member $memberName');
+      
+      // Send the email with QR code using the EmailService
+      final success = await _emailService.sendQRCodeEmail(
+        recipientEmail: email,
+        memberName: memberName,
+        teamName: teamName,
+        qrCodeData: qrData,
+      );
+      
+      if (success) {
+        // Update member document to mark that the QR was sent by email
+        await _firestore.collection('members').doc(memberId).update({
+          'qrSentByEmail': true,
+          'qrEmailSentAt': FieldValue.serverTimestamp(),
+        });
+        
+        developer.log('QR code sent successfully to $email');
+      } else {
+        developer.log('Failed to send QR code email to $email');
+      }
+      
+      return success;
+    } catch (e) {
+      developer.log('Error sending QR code by email: $e');
+      return false;
+    }
+  }
+
+  // Send QR codes to all iOS members in a team using team collection emails
+  Future<Map<String, dynamic>> sendQRCodeToAllTeamIOSMembers(String teamId) async {
+    try {
+      developer.log('Starting QR code delivery for iOS members in team: $teamId');
+      
+      // Get the team data
+      final teamDoc = await _firestore.collection('teams').doc(teamId).get();
+      if (!teamDoc.exists) {
+        return {
+          'success': false,
+          'message': 'Team not found',
+          'sent': 0,
+          'failed': 0,
+        };
+      }
+      
+      // Get team data
+      final teamData = teamDoc.data()!;
+      final String teamName = teamData['teamName'] ?? '';
+      
+      // Get all team members (both leader and regular members)
+      final List<Map<String, dynamic>> allMembers = [];
+      
+      // Add leader to list
+      if (teamData['leader'] != null) {
+        allMembers.add(teamData['leader'] as Map<String, dynamic>);
+      }
+      
+      // Add other members
+      if (teamData['members'] != null) {
+        final membersList = teamData['members'] as List<dynamic>;
+        for (var member in membersList) {
+          allMembers.add(member as Map<String, dynamic>);
+        }
+      }
+      
+      // Track results
+      int sentCount = 0;
+      int failedCount = 0;
+      List<String> processed = [];
+      
+      // Process each member with an iOS device
+      for (var member in allMembers) {
+        // Focus on iOS users only and check if email exists
+        if (member['device'] == 'iOS' && 
+            member['email'] != null && 
+            member['email'].toString().isNotEmpty) {
+          
+          final String memberName = member['name'] ?? '';
+          final String email = member['email'];
+          
+          // Skip already processed emails
+          if (processed.contains(email)) continue;
+          processed.add(email);
+          
+          developer.log('Processing iOS member: $memberName with email: $email');
+          
+          // Find or create member document
+          String memberId = '';
+          String qrData = '';
+          
+          // Look for existing member in members collection
+          final membersSnapshot = await _firestore
+            .collection('members')
+            .where('name', isEqualTo: memberName)
+            .where('teamName', isEqualTo: teamName)
+            .limit(1)
+            .get();
+            
+          if (membersSnapshot.docs.isNotEmpty) {
+            // Use existing member
+            memberId = membersSnapshot.docs.first.id;
+            final memberData = membersSnapshot.docs.first.data();
+            
+            // Update member with email if not already set
+            if (memberData['email'] == null || memberData['email'].toString().isEmpty) {
+              await _firestore.collection('members').doc(memberId).update({
+                'email': email,
+                'device': 'iOS'
+              });
+              developer.log('Updated member document with email: $email');
+            }
+            
+            // Check if member needs QR code
+            if (memberData['qrSecret'] == null) {
+              // Generate and store QR
+              qrData = await generateAndStoreMemberQR(memberId, memberName, teamName);
+            } else {
+              // Use existing QR
+              qrData = await generateQRWithStoredSecret(memberId, memberName, teamName);
+            }
+          } else {
+            // Create new member document
+            final newMemberRef = _firestore.collection('members').doc();
+            memberId = newMemberRef.id;
+            
+            // Create member data
+            await newMemberRef.set({
+              'name': memberName,
+              'teamName': teamName,
+              'teamId': teamId,
+              'isBreakfastConsumed': false,
+              'isLunchConsumed': false,
+              'isDinnerConsumed': false,
+              'isTestMealConsumed': false,
+              'device': 'iOS',
+              'email': email,
+              'createdAt': FieldValue.serverTimestamp(),
+            });
+            
+            developer.log('Created new member document for: $memberName');
+            
+            // Generate QR code
+            qrData = await generateAndStoreMemberQR(memberId, memberName, teamName);
+          }
+          
+          // Send email with QR code
+          developer.log('Sending QR code email to: $email');
+          final success = await sendQRCodeByEmail(
+            memberId,
+            memberName,
+            teamName,
+            email,
+            qrData
+          );
+          
+          if (success) {
+            sentCount++;
+            developer.log('Successfully sent QR code to: $email');
+          } else {
+            failedCount++;
+            developer.log('Failed to send QR code to: $email');
+          }
+        }
+      }
+      
+      developer.log('Team QR code delivery complete. Sent: $sentCount, Failed: $failedCount');
+      
+      return {
+        'success': true,
+        'message': 'Automatic QR code delivery complete for iOS users',
+        'sent': sentCount,
+        'failed': failedCount,
+      };
+    } catch (e) {
+      developer.log('Error in team iOS QR code delivery: $e');
+      return {
+        'success': false,
+        'message': 'Error: $e',
+        'sent': 0,
+        'failed': 0,
+      };
+    }
   }
 } 
