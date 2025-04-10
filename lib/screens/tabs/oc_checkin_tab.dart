@@ -4,8 +4,11 @@ import 'package:qr/qr.dart';
 import 'package:flutter/services.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common_widgets.dart';
+import '../../services/qr_scanner_service.dart';
+import '../../services/auth_service.dart';
 
 // Common OC verification data model
 class OCVerificationData {
@@ -45,6 +48,7 @@ class OCCheckinTab extends StatefulWidget {
 
 class _OCCheckinTabState extends State<OCCheckinTab> {
   bool _isLoading = false;
+  String? _errorMessage;
   final _searchController = TextEditingController();
   
   // QR code related properties
@@ -59,33 +63,112 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
   // Team verification status
   List<TeamData> _teams = [];
   
+  // Reference to Firestore and services
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final QRScannerService _qrScannerService = QRScannerService();
+  final AuthService _authService = AuthService();
+  
   @override
   void initState() {
     super.initState();
     _loadTeamData();
   }
   
-  // Load team data (replace with actual data loading)
-  void _loadTeamData() {
+  // Load team data from Firestore
+  Future<void> _loadTeamData() async {
     setState(() {
       _isLoading = true;
+      _errorMessage = null;
     });
     
-    // In a real app, this would load from database or API
-    Future.delayed(const Duration(milliseconds: 500), () {
-      setState(() {
-        _teams = List.generate(5, (index) => 
+    try {
+      // Get teams collection from Firestore
+      final QuerySnapshot teamsSnapshot = await _firestore.collection('teams').get();
+      
+      final List<TeamData> loadedTeams = [];
+      
+      // Convert documents to TeamData objects
+      for (var doc in teamsSnapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        loadedTeams.add(
           TeamData(
-            id: 'TEAM${index + 1}',
-            name: 'Team ${index + 1}',
-            leaderName: 'Leader ${index + 1}',
-            memberCount: 4,
-            isVerified: false,
-          )
+            id: doc.id,
+            name: data['teamName'] ?? data['name'] ?? 'Unnamed Team',
+            leaderName: data['leader'] != null && data['leader'] is Map ? 
+                     (data['leader'] as Map)['name'] ?? 'Unknown Leader' : 
+                     data['leaderName'] ?? 'Unknown Leader',
+            memberCount: data['members'] != null && data['members'] is List ? 
+                       (data['members'] as List).length : 
+                       data['memberCount'] ?? 0,
+            isVerified: data['isVerified'] ?? false,
+          ),
         );
+      }
+      
+      // If there are no teams in the database, create some sample teams
+      if (loadedTeams.isEmpty) {
+        await _createSampleTeams();
+        // Fetch teams again after creating samples
+        return _loadTeamData();
+      }
+      
+      // Sort teams by name
+      loadedTeams.sort((a, b) => a.name.compareTo(b.name));
+      
+      setState(() {
+        _teams = loadedTeams;
         _isLoading = false;
       });
-    });
+    } catch (e) {
+      print('Error loading teams: $e');
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Failed to load teams: $e';
+      });
+    }
+  }
+  
+  // Create sample teams in Firestore (only if no teams exist)
+  Future<void> _createSampleTeams() async {
+    final batch = _firestore.batch();
+    
+    // Create 5 sample teams with proper Team model structure
+    for (var i = 1; i <= 5; i++) {
+      final teamRef = _firestore.collection('teams').doc();
+      
+      // Create a leader for the team
+      final Map<String, dynamic> leaderData = {
+        'name': 'Leader $i',
+        'email': 'leader$i@example.com',
+        'phone': '123456789$i',
+        'device': 'Device $i',
+      };
+      
+      // Create team members
+      final List<Map<String, dynamic>> membersData = List.generate(
+        3, // 3 members in addition to the leader
+        (index) => {
+          'name': 'Member ${i}_${index + 1}',
+          'email': 'member${i}_${index + 1}@example.com',
+          'phone': '987654321${i}${index + 1}',
+          'device': 'Device ${i}_${index + 1}',
+        },
+      );
+      
+      batch.set(teamRef, {
+        'teamName': 'Team $i',
+        'teamId': teamRef.id,
+        'username': 'team$i',
+        'password': 'password$i',
+        'leader': leaderData,
+        'members': membersData,
+        'isVerified': false,
+        'isRegistered': true,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+    
+    await batch.commit();
   }
   
   // Generate QR code data with timestamp for security
@@ -123,67 +206,197 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
     });
   }
   
-  // Process scanned QR code
-  void _processScannedCode(String? code) {
+  // Process scanned QR code using the existing QRScannerService
+  Future<void> _processScannedCode(String? code) async {
     if (code == null) return;
     
+    setState(() {
+      _isLoading = true;
+    });
+    
     try {
-      final Map<String, dynamic> jsonData = json.decode(code);
-      final OCVerificationData data = OCVerificationData.fromJson(jsonData);
-      
-      // Validate the QR code data
-      final bool isValid = _validateQRData(data);
-      
-      if (isValid) {
-        // Find the selected team (assuming the first one for now)
-        if (_teams.isNotEmpty) {
-          setState(() {
-            // In a real app, you would select a specific team
-            _teams[0].isVerified = true;
-            _isScanning = false;
-            _scannerController?.dispose();
-            _scannerController = null;
-            
-            // Show success message
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Team verification successful!'),
-                backgroundColor: Colors.green,
-              ),
-            );
-          });
-        }
+      // Process using QRScannerService for compatibility
+      if (code.startsWith('verify_team:')) {
+        // Already formatted for verification
+        final result = await _qrScannerService.processQRCode(code);
+        _handleVerificationResult(result);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Invalid or expired QR code'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        // This is a team's QR code
+        try {
+          // Try to extract teamId from the QR code
+          final Map<String, dynamic> qrData = json.decode(code);
+          
+          if (qrData.containsKey('teamId')) {
+            // Format it for the QR service
+            final formattedCode = 'verify_team:${qrData['teamId']}';
+            final result = await _qrScannerService.processQRCode(formattedCode);
+            _handleVerificationResult(result);
+          } else {
+            // Try direct verification with QRScannerService
+            final result = await _qrScannerService.processQRCode(code);
+            _handleVerificationResult(result);
+          }
+        } catch (e) {
+          // Try direct verification with QRScannerService
+          final result = await _qrScannerService.processQRCode(code);
+          _handleVerificationResult(result);
+        }
       }
     } catch (e) {
-      print('Error processing QR code: $e');
+      setState(() {
+        _isLoading = false;
+      });
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Invalid QR code format'),
+        SnackBar(
+          content: Text('Error processing QR code: $e'),
           backgroundColor: Colors.red,
         ),
       );
     }
   }
   
-  // Validate QR data (check ID, code, and timestamp)
-  bool _validateQRData(OCVerificationData data) {
-    // Check if ID and code match
-    final bool correctCredentials = 
-        data.id == _ocCommonId && data.ocCode == _ocSecretCode;
+  // Handle the verification result
+  void _handleVerificationResult(Map<String, dynamic> result) {
+    setState(() {
+      _isLoading = false;
+      _isScanning = false;
+      if (_scannerController != null) {
+        _scannerController!.dispose();
+        _scannerController = null;
+      }
+    });
     
-    // Check if QR code is not too old (5 minute expiration)
-    final int currentTime = DateTime.now().millisecondsSinceEpoch;
-    final bool notExpired = 
-        (currentTime - data.timestamp) < const Duration(minutes: 5).inMilliseconds;
+    if (result['success']) {
+      // Show success message and reload teams to update UI
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message'] ?? 'Team verified successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      
+      // Reload team data to reflect changes
+      _loadTeamData();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message'] ?? 'Verification failed'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+  
+  // Manual verification for a specific team
+  Future<void> _manuallyVerifyTeam(String teamId, bool isVerified) async {
+    setState(() {
+      _isLoading = true;
+    });
     
-    return correctCredentials && notExpired;
+    try {
+      if (isVerified) {
+        // Use the existing auth service to verify the team
+        final result = await _authService.verifyTeam(teamId);
+        _handleVerificationResult(result);
+      } else {
+        // Unverify the team - direct update since there's no unverify method
+        await _firestore.collection('teams').doc(teamId).update({
+          'isVerified': false,
+          'verifiedAt': null,
+        });
+        
+        // Update local state
+        setState(() {
+          final teamIndex = _teams.indexWhere((team) => team.id == teamId);
+          if (teamIndex != -1) {
+            _teams[teamIndex].isVerified = false;
+          }
+          _isLoading = false;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Team unverified successfully'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error updating verification status: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+  
+  // Search teams by name or ID
+  void _searchTeams(String query) {
+    if (query.isEmpty) {
+      _loadTeamData();
+      return;
+    }
+    
+    setState(() {
+      final lowercaseQuery = query.toLowerCase();
+      _teams = _teams.where((team) => 
+          team.name.toLowerCase().contains(lowercaseQuery) || 
+          team.id.toLowerCase().contains(lowercaseQuery) ||
+          team.leaderName.toLowerCase().contains(lowercaseQuery)
+      ).toList();
+    });
+  }
+  
+  // Reset all teams' verification status (for testing)
+  Future<void> _resetAllTeams() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      final batch = _firestore.batch();
+      
+      // Get all teams
+      final QuerySnapshot teamsSnapshot = await _firestore.collection('teams').get();
+      
+      // Reset verification status for all teams
+      for (var doc in teamsSnapshot.docs) {
+        batch.update(doc.reference, {
+          'isVerified': false,
+          'verifiedAt': null,
+        });
+      }
+      
+      await batch.commit();
+      
+      // Reload teams
+      await _loadTeamData();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('All teams reset successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Failed to reset teams: $e';
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to reset teams: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
   
   @override
@@ -210,12 +423,29 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            'Verify and check in teams for the hackathon',
-            style: TextStyle(
-              color: AppTheme.textSecondaryColor,
-              fontSize: 16,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Verify and check in teams for the hackathon',
+                  style: TextStyle(
+                    color: AppTheme.textSecondaryColor,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              // Reset button (for testing)
+              TextButton.icon(
+                onPressed: _resetAllTeams,
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('Reset All', style: TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 24),
           
@@ -453,6 +683,7 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                   label: 'Search Teams',
                   hint: 'Enter team name or ID',
                   controller: _searchController,
+                  onChanged: _searchTeams,
                   prefixIcon: Icon(
                     Icons.search,
                     color: AppTheme.textSecondaryColor,
@@ -502,111 +733,216 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
             ],
           ),
           
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+          
+          // Error message
+          if (_errorMessage != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _errorMessage!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.red, size: 16),
+                    onPressed: () {
+                      setState(() {
+                        _errorMessage = null;
+                      });
+                    },
+                    constraints: const BoxConstraints(
+                      minWidth: 20,
+                      minHeight: 20,
+                    ),
+                    padding: EdgeInsets.zero,
+                    splashRadius: 20,
+                  ),
+                ],
+              ),
+            ),
+            
+          if (_errorMessage != null) const SizedBox(height: 16),
           
           // Team list
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    itemCount: _teams.length,
-                    itemBuilder: (context, index) {
-                      final team = _teams[index];
-                      return GlassCard(
-                        padding: const EdgeInsets.all(16),
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 50,
-                                height: 50,
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryColor.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(25),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    '${index + 1}',
-                                    style: TextStyle(
-                                      color: AppTheme.primaryColor,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
+                : _teams.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.groups_outlined,
+                              size: 64,
+                              color: AppTheme.textSecondaryColor.withOpacity(0.5),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No teams found',
+                              style: TextStyle(
+                                color: AppTheme.textSecondaryColor,
+                                fontSize: 16,
                               ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      team.name,
-                                      style: TextStyle(
-                                        color: AppTheme.textPrimaryColor,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Team Leader: ${team.leaderName}',
-                                      style: TextStyle(
-                                        color: AppTheme.textSecondaryColor,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    Text(
-                                      'Members: ${team.memberCount}',
-                                      style: TextStyle(
-                                        color: AppTheme.textSecondaryColor,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // Verification status icon
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: team.isVerified 
-                                      ? Colors.green.withOpacity(0.2) 
-                                      : Colors.orange.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      team.isVerified 
-                                          ? Icons.verified_user 
-                                          : Icons.pending,
-                                      color: team.isVerified 
-                                          ? Colors.green 
-                                          : Colors.orange,
-                                      size: 16,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      team.isVerified ? 'Verified' : 'Pending',
-                                      style: TextStyle(
-                                        color: team.isVerified 
-                                            ? Colors.green 
-                                            : Colors.orange,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                            ),
+                            if (_searchController.text.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              TextButton.icon(
+                                onPressed: () {
+                                  _searchController.clear();
+                                  _loadTeamData();
+                                },
+                                icon: const Icon(Icons.refresh),
+                                label: const Text('Clear search'),
                               ),
                             ],
-                          ),
+                          ],
                         ),
-                      );
-                    },
-                  ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: _loadTeamData,
+                        child: ListView.builder(
+                          itemCount: _teams.length,
+                          itemBuilder: (context, index) {
+                            final team = _teams[index];
+                            return GlassCard(
+                              padding: const EdgeInsets.all(16),
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 50,
+                                      height: 50,
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.primaryColor.withOpacity(0.2),
+                                        borderRadius: BorderRadius.circular(25),
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          '${index + 1}',
+                                          style: TextStyle(
+                                            color: AppTheme.primaryColor,
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            team.name,
+                                            style: TextStyle(
+                                              color: AppTheme.textPrimaryColor,
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          Text(
+                                            'Team Leader: ${team.leaderName}',
+                                            style: TextStyle(
+                                              color: AppTheme.textSecondaryColor,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                          Text(
+                                            'Members: ${team.memberCount}',
+                                            style: TextStyle(
+                                              color: AppTheme.textSecondaryColor,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    // Verification status icon and toggle
+                                    Column(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: team.isVerified 
+                                                ? Colors.green.withOpacity(0.2) 
+                                                : Colors.orange.withOpacity(0.2),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                team.isVerified 
+                                                    ? Icons.verified_user 
+                                                    : Icons.pending,
+                                                color: team.isVerified 
+                                                    ? Colors.green 
+                                                    : Colors.orange,
+                                                size: 16,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                team.isVerified ? 'Verified' : 'Pending',
+                                                style: TextStyle(
+                                                  color: team.isVerified 
+                                                      ? Colors.green 
+                                                      : Colors.orange,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        // Manual toggle button
+                                        SizedBox(
+                                          height: 30,
+                                          child: TextButton(
+                                            onPressed: () => _manuallyVerifyTeam(
+                                              team.id, 
+                                              !team.isVerified
+                                            ),
+                                            style: TextButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              minimumSize: Size.zero,
+                                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                              backgroundColor: team.isVerified 
+                                                  ? Colors.red.withOpacity(0.1) 
+                                                  : Colors.green.withOpacity(0.1),
+                                            ),
+                                            child: Text(
+                                              team.isVerified ? 'Unverify' : 'Verify',
+                                              style: TextStyle(
+                                                color: team.isVerified ? Colors.red : Colors.green,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
           ),
         ],
       ),

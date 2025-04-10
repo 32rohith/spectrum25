@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
+import 'dart:developer' as developer;
 import '../models/team.dart';
 import '../theme/app_theme.dart';
 import '../utils/glass_morphism.dart';
@@ -29,6 +30,13 @@ class _MainAppScreenState extends State<MainAppScreen> {
   @override
   void initState() {
     super.initState();
+    developer.log('Initializing MainAppScreen with team: ${widget.team.teamName}, verified: ${widget.team.isVerified}');
+    
+    // Make sure team is verified
+    if (!widget.team.isVerified) {
+      developer.log('Warning: Team is not verified but accessing MainAppScreen');
+    }
+    
     _tabs = [
       LeaderboardTab(),
       TeamDetailsTab(team: widget.team),

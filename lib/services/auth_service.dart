@@ -415,10 +415,6 @@ class AuthService {
           } else {
             developer.log('Team not found');
             await _auth.signOut();
-            return {
-              'success': false,
-              'message': 'Team not found',
-            };
           }
         } else {
           developer.log('No member document found by email ID');
@@ -449,15 +445,35 @@ class AuthService {
     try {
       developer.log('Verifying team: $teamId');
       
+      // First check if the team exists
+      final teamDoc = await _firestore.collection('teams').doc(teamId).get();
+      
+      if (!teamDoc.exists) {
+        developer.log('Team not found with ID: $teamId');
+        return {
+          'success': false,
+          'message': 'Team not found',
+        };
+      }
+      
       // Update team verification status
       await _firestore.collection('teams').doc(teamId).update({
         'isVerified': true,
+        'verifiedAt': FieldValue.serverTimestamp(),
       });
+      
+      // Get the updated team data
+      final updatedTeamDoc = await _firestore.collection('teams').doc(teamId).get();
+      final teamData = updatedTeamDoc.data() as Map<String, dynamic>;
+      
+      // Create a Team object
+      final team = Team.fromJson(teamData);
       
       developer.log('Team verification successful');
       return {
         'success': true,
         'message': 'Team verified successfully',
+        'team': team,
       };
     } catch (e) {
       developer.log('Error verifying team: $e');

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
+import 'dart:developer' as developer;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/team.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
@@ -20,10 +22,40 @@ class QRVerificationScreen extends StatefulWidget {
 
 class _QRVerificationScreenState extends State<QRVerificationScreen> {
   final QRScannerService _qrScannerService = QRScannerService();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   bool _isLoading = false;
   String? _errorMessage;
   bool _isSuccess = false;
   String _successMessage = '';
+
+  @override
+  void initState() {
+    super.initState();
+    // Check if team is already verified
+    if (widget.team.isVerified) {
+      _handleAlreadyVerified();
+    }
+  }
+  
+  // Handle teams that are already verified
+  void _handleAlreadyVerified() {
+    setState(() {
+      _isSuccess = true;
+      _successMessage = 'Your team is already verified!';
+    });
+    
+    // Navigate directly to main app after a short delay
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MainAppScreen(team: widget.team),
+          ),
+        );
+      }
+    });
+  }
 
   void _startQRScan() async {
     setState(() {
@@ -33,12 +65,15 @@ class _QRVerificationScreenState extends State<QRVerificationScreen> {
     });
 
     try {
+      developer.log('Starting QR scan');
+      
       final result = await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => QRScannerWidget(
             onQRViewCreated: _processQRCode,
             onCancel: () {
+              developer.log('QR scan cancelled by user');
               setState(() {
                 _isLoading = false;
               });
@@ -46,29 +81,59 @@ class _QRVerificationScreenState extends State<QRVerificationScreen> {
           ),
         ),
       );
-
-      if (result != null && result is Map<String, dynamic> && result['success']) {
+      
+      // Check if we got a result and if the widget is still mounted
+      if (result == null || !mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+      
+      developer.log('QR scan result: $result');
+      
+      // Check if result is valid and verification was successful
+      if (result is Map<String, dynamic> && result['success']) {
         setState(() {
           _isSuccess = true;
           _successMessage = result['message'] ?? 'Verification successful!';
+          _isLoading = false;
         });
+        
+        // Get team with verification flag set
+        Team verifiedTeam = result['team'] as Team;
         
         // Add delay before navigation to show success message
         Future.delayed(const Duration(seconds: 2), () {
           // Navigate to main app screen if verification successful
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => MainAppScreen(team: widget.team),
-            ),
-          );
+          if (mounted) {
+            developer.log('Navigating to MainAppScreen with verified team');
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => MainAppScreen(team: verifiedTeam),
+              ),
+            );
+          }
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+          if (result is Map<String, dynamic>) {
+            _errorMessage = result['message'] ?? 'Verification failed';
+          } else {
+            _errorMessage = 'Verification was cancelled or encountered an error';
+          }
         });
       }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'An error occurred during QR scanning: $e';
-      });
+      developer.log('Error during QR scanning: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'An error occurred during QR scanning: $e';
+        });
+      }
     }
   }
 
@@ -79,32 +144,95 @@ class _QRVerificationScreenState extends State<QRVerificationScreen> {
     });
 
     try {
+      developer.log('Processing QR code data: $qrData');
+      
       // Process QR code
       final result = await _qrScannerService.processQRCode(qrData);
+      developer.log('QR code processing result: $result');
 
+      // Only update UI if still mounted
+      if (!mounted) {
+        developer.log('Widget not mounted, returning result without UI update');
+        return result;
+      }
+
+      // Ensure UI is updated with loading state
       setState(() {
         _isLoading = false;
       });
 
       if (result['success']) {
-        // Return to navigate to main app
-        Navigator.pop(context, result);
+        // Create a new team instance with isVerified set to true
+        final verifiedTeam = Team(
+          teamName: widget.team.teamName,
+          teamId: widget.team.teamId,
+          username: widget.team.username,
+          password: widget.team.password,
+          leader: widget.team.leader,
+          members: widget.team.members,
+          isVerified: true,
+          isRegistered: widget.team.isRegistered,
+          projectSubmissionUrl: widget.team.projectSubmissionUrl,
+        );
+        
+        // Update isVerified in Firestore database
+        try {
+          await _updateTeamVerificationInDatabase();
+          developer.log('Team verification updated in database');
+        } catch (e) {
+          developer.log('Error updating database: $e');
+          // Continue with local verification even if database update fails
+        }
+        
+        // Return success result with verified team
+        final successResult = {
+          'success': true,
+          'message': 'Team verified successfully',
+          'team': verifiedTeam
+        };
+        
+        // Pop with success result
+        Navigator.pop(context, successResult);
+        return successResult;
       } else {
         setState(() {
           _errorMessage = result['message'];
         });
+        return result;
       }
-
-      return result;
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'An error occurred during QR processing: $e';
-      });
+      developer.log('QR Processing error: $e');
+      
+      // Only update UI if still mounted
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'An error occurred during QR processing: $e';
+        });
+      }
+      
       return {
         'success': false,
         'message': 'An error occurred during QR processing: $e',
       };
+    }
+  }
+
+  // Function to update team verification status in Firestore
+  Future<void> _updateTeamVerificationInDatabase() async {
+    try {
+      developer.log('Updating isVerified=true in Firestore for team: ${widget.team.teamId}');
+      
+      // Update the team document in Firestore
+      await _firestore.collection('teams').doc(widget.team.teamId).update({
+        'isVerified': true,
+        'verifiedAt': FieldValue.serverTimestamp(),
+      });
+      
+      developer.log('Successfully updated team verification in database');
+    } catch (e) {
+      developer.log('Error updating team in database: $e');
+      throw e; // Rethrow so the calling function can handle it
     }
   }
 
