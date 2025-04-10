@@ -5,7 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:developer' as developer;
 import 'firebase_options.dart';
 import 'theme/app_theme.dart';
-import 'screens/welcome_screen.dart';
+import 'screens/splash_screen.dart';
 
 // Initialize path_provider plugin to ensure it's available for google_fonts
 Future<void> _initPathProvider() async {
@@ -34,17 +34,16 @@ Future<void> initializeFirebase() async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Set orientation constraints
+  // Initialize plugins first to avoid any delays
+  await _initPathProvider();
+  await initializeFirebase();
+  
+  // Set orientation constraints after initialization
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
   
-  // Initialize plugins
-  await _initPathProvider();
-  await initializeFirebase();  
-  // Note: Impeller settings should be configured in the app's native settings
-  // rather than through code, as FlutterView.useImpeller is not available
   runApp(const MyApp());
 }
 
@@ -57,7 +56,7 @@ class MyApp extends StatelessWidget {
       title: 'Spectrum Hackathon',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: const WelcomeScreen(),
+      home: const SplashScreen(),
     );
   }
 

@@ -1,0 +1,21 @@
+flutter_native_splash:
+  # Background color of the splash screen
+  color: "#000000"
+  # The image that will be displayed in the center of the splash screen
+  image: assets/logo.png
+  # Ensure the splash screen is shown on both platforms
+  android: true
+  ios: true
+  # Android 12 specific configuration
+  android_12:
+    image: assets/logo.png
+    icon_background_color: "#000000"
+  # Don't show on web
+  web: false
+  # Don't use fullscreen mode to avoid status bar issues
+  fullscreen: false
+  # Center the image
+  android_gravity: center
+  ios_content_mode: center
+  # Lock to portrait orientation
+  android_screen_orientation: portrait

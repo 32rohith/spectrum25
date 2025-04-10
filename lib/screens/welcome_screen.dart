@@ -92,7 +92,7 @@ class WelcomeScreen extends StatelessWidget {
                       // App Logo and Title
                       Image.asset(
                         'assets/logo.png',
-                        width: screenWidth * 0.5,
+                        width: screenWidth * 0.9,
                         fit: BoxFit.contain,
                       ),
                       Text(
