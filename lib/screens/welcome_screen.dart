@@ -5,6 +5,7 @@ import '../utils/glass_morphism.dart';
 import '../widgets/common_widgets.dart';
 import 'team_leader_signup.dart';
 import 'login_screen.dart';
+import 'oc_login_screen.dart';
 import 'package:flutter/rendering.dart';
 
 class WelcomeScreen extends StatelessWidget {
@@ -215,19 +216,36 @@ class WelcomeScreen extends StatelessWidget {
                   
                   const Spacer(),
                   
-                  // OC Member Access
-                  TextButton(
-                    onPressed: () {
-                      // TODO: Navigate to OC login
-                    },
-                    child: Text(
-                      'Are you an Organizing Committee member?',
-                      style: TextStyle(
-                        color: AppTheme.accentColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                  // OC Member Access with Login text
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Are you an Organizing Committee member?',
+                        style: TextStyle(
+                          color: AppTheme.textSecondaryColor,
+                          fontSize: 14,
+                        ),
                       ),
-                    ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const OCLoginScreen(),
+                            ),
+                          );
+                        },
+                        child: Text(
+                          'Log in',
+                          style: TextStyle(
+                            color: AppTheme.accentColor,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 24),
                 ],
