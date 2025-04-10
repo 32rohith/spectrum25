@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
+import 'dart:io';
+import 'package:flutter/services.dart';
+import 'package:csv/csv.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import 'oc_main_screen.dart';
@@ -17,7 +20,6 @@ class _OCLoginScreenState extends State<OCLoginScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   String? _errorMessage;
-  bool _showPassword = false;
 
   @override
   void dispose() {
@@ -26,24 +28,97 @@ class _OCLoginScreenState extends State<OCLoginScreen> {
     super.dispose();
   }
 
+  // Verify if user exists in OC members data
+  bool _verifyOCMember(String name, String phone) {
+    if (_ocMembersData.isEmpty) {
+      setState(() {
+        _errorMessage = 'OC members data not loaded. Please try again.';
+      });
+      return false;
+    }
+    
+    // Normalize inputs for comparison (trim whitespace, convert to lowercase)
+    final normalizedName = name.trim().toLowerCase();
+    final normalizedPhone = phone.trim();
+    
+    // Check if user exists in OC members data
+    for (var member in _ocMembersData) {
+      if (member.length >= 2) {
+        final memberName = member[0].toString().trim().toLowerCase();
+        final memberPhone = member[1].toString().trim();
+        
+        if (memberName == normalizedName && memberPhone == normalizedPhone) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  }
+
+  // Check if user is currently locked out
+  bool _isLockedOut() {
+    if (!_lockoutActive) return false;
+    
+    if (_lockoutEndTime != null && DateTime.now().isAfter(_lockoutEndTime!)) {
+      // Lockout period has ended
+      setState(() {
+        _lockoutActive = false;
+        _loginAttempts = 0;
+        _lockoutEndTime = null;
+      });
+      return false;
+    }
+    
+    return true;
+  }
+
+  // Handle lockout after failed attempts
+  void _handleFailedAttempt() {
+    setState(() {
+      _loginAttempts++;
+      
+      if (_loginAttempts >= _maxLoginAttempts) {
+        _lockoutActive = true;
+        _lockoutEndTime = DateTime.now().add(_lockoutDuration);
+        _errorMessage = 'Too many failed attempts. Please try again after ${_lockoutDuration.inMinutes} minutes.';
+      } else {
+        _errorMessage = 'Verification failed. Invalid name or phone number. '
+            '${_maxLoginAttempts - _loginAttempts} attempts remaining.';
+      }
+    });
+  }
+
   void _login() {
-    // This is just UI for now, no actual login functionality
     if (_formKey.currentState!.validate()) {
+      // Check lockout status first
+      if (_isLockedOut()) {
+        final remaining = _lockoutEndTime!.difference(DateTime.now());
+        setState(() {
+          _errorMessage = 'Account temporarily locked. Try again in ${remaining.inMinutes} min ${remaining.inSeconds % 60} sec.';
+        });
+        return;
+      }
+      
       setState(() {
         _isLoading = true;
+        _errorMessage = null;
       });
 
-      // Simulate login delay
-      Future.delayed(const Duration(seconds: 1), () {
+      Future.delayed(const Duration(milliseconds: 800), () {
+        final name = _nameController.text;
+        final phone = _phoneController.text;
+        
+        final isVerified = _verifyOCMember(name, phone);
+        
         setState(() {
           _isLoading = false;
-          _errorMessage = null;
           
-          // Navigate to OC main screen
-          Navigator.pushReplacement(
-            context, 
-            MaterialPageRoute(
-              builder: (context) => const OCMainScreen(),
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('OC verification would happen here'),
+              backgroundColor: Colors.green,
             ),
           );
         });
@@ -210,6 +285,14 @@ class _OCLoginScreenState extends State<OCLoginScreen> {
                         // Ensure only numbers are entered
                         if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
                           return 'Password must contain only numbers';
+                        }
+                        
+                        // Remove all non-numeric characters for validation
+                        final cleanPhone = value.replaceAll(RegExp(r'\D'), '');
+                        
+                        // Basic phone number validation - can be customized for your country format
+                        if (cleanPhone.length < 8 || cleanPhone.length > 15) {
+                          return 'Please enter a valid phone number';
                         }
                         return null;
                       },
