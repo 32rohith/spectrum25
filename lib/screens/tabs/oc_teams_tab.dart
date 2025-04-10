@@ -197,13 +197,13 @@ class _OCTeamsTabState extends State<OCTeamsTab> {
             children: [
               Expanded(
                 child: CustomTextField(
-                  label: 'Search Teams',
-                  hint: 'Search by team name or leader',
-                  controller: _searchController,
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: AppTheme.textSecondaryColor,
-                  ),
+            label: 'Search Teams',
+            hint: 'Search by team name or leader',
+            controller: _searchController,
+            prefixIcon: Icon(
+              Icons.search,
+              color: AppTheme.textSecondaryColor,
+            ),
                   onChanged: (_) => _filterTeams(),
                 ),
               ),
@@ -217,10 +217,10 @@ class _OCTeamsTabState extends State<OCTeamsTab> {
                 child: DropdownButton<String>(
                   value: _selectedFilter,
                   dropdownColor: AppTheme.backgroundColor,
-                  style: TextStyle(
+                            style: TextStyle(
                     color: AppTheme.textPrimaryColor,
-                    fontSize: 14,
-                  ),
+                              fontSize: 14,
+                            ),
                   underline: const SizedBox(),
                   items: [
                     DropdownMenuItem(
@@ -287,9 +287,9 @@ class _OCTeamsTabState extends State<OCTeamsTab> {
                               style: TextStyle(color: AppTheme.textSecondaryColor),
                             ),
                           )
-                        : ListView.builder(
+                : ListView.builder(
                             itemCount: _filteredTeams.length,
-                            itemBuilder: (context, index) {
+                    itemBuilder: (context, index) {
                               final team = _filteredTeams[index];
                               List<dynamic> members = [];
                               if (team['members'] != null) {
@@ -302,7 +302,7 @@ class _OCTeamsTabState extends State<OCTeamsTab> {
                               
                               return Container(
                                 margin: const EdgeInsets.only(bottom: 8),
-                                child: GlassCard(
+                        child: GlassCard(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 12,
                                     vertical: 8,
@@ -312,18 +312,18 @@ class _OCTeamsTabState extends State<OCTeamsTab> {
                                       team['id'],
                                       team['name'],
                                     ),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Row(
                                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Text(
+                                    children: [
+                                      Text(
                                               team['name'],
-                                              style: TextStyle(
+                                        style: TextStyle(
                                                 fontSize: 18,
                                                 fontWeight: FontWeight.bold,
-                                                color: AppTheme.textPrimaryColor,
+                                          color: AppTheme.textPrimaryColor,
                                               ),
                                             ),
                                             Container(
@@ -339,7 +339,7 @@ class _OCTeamsTabState extends State<OCTeamsTab> {
                                                 _getTeamStatusText(team),
                                                 style: TextStyle(
                                                   color: _getTeamStatusTextColor(team),
-                                                  fontWeight: FontWeight.bold,
+                                          fontWeight: FontWeight.bold,
                                                   fontSize: 12,
                                                 ),
                                               ),
@@ -355,10 +355,10 @@ class _OCTeamsTabState extends State<OCTeamsTab> {
                                             ),
                                           ),
                                           const SizedBox(height: 4),
-                                          Text(
+                                      Text(
                                             'Members: ${(team['members']?.length ?? 0) + 1} (${(team['leader']?['isVerified'] == true ? 1 : 0) + ((team['members'] as List?)?.where((m) => m['isVerified'] == true).length ?? 0)} checked in)',
-                                            style: TextStyle(
-                                              color: AppTheme.textSecondaryColor,
+                                        style: TextStyle(
+                                          color: AppTheme.textSecondaryColor,
                                             ),
                                           ),
                                           const SizedBox(height: 12),
@@ -366,7 +366,7 @@ class _OCTeamsTabState extends State<OCTeamsTab> {
                                             'Tap to view member details',
                                             style: TextStyle(
                                               color: AppTheme.accentColor,
-                                              fontSize: 12,
+                                          fontSize: 12,
                                               fontStyle: FontStyle.italic,
                                             ),
                                           ),
@@ -377,19 +377,19 @@ class _OCTeamsTabState extends State<OCTeamsTab> {
                                             style: TextStyle(
                                               color: AppTheme.textSecondaryColor,
                                               fontStyle: FontStyle.italic,
-                                            ),
-                                          ),
-                                        ],
+                                        ),
+                                      ),
+                                    ],
                                       ],
                                     ),
                                   ),
                                 ),
                               );
                             },
-                          ),
-          ),
-        ],
-      ),
+                                  ),
+                                ),
+                              ],
+                            ),
     );
   }
 
@@ -714,16 +714,16 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
                 : Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Team Members',
-                        style: TextStyle(
-                          color: AppTheme.textPrimaryColor,
-                          fontWeight: FontWeight.bold,
+                            children: [
+                              Text(
+                                'Team Members',
+                                style: TextStyle(
+                                  color: AppTheme.textPrimaryColor,
+                                  fontWeight: FontWeight.bold,
                           fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
                       Text(
                         'Verify individual team members by checking/unchecking the boxes.',
                         style: TextStyle(
@@ -739,43 +739,43 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
                             final member = _membersList[index];
                             return Container(
                               margin: const EdgeInsets.only(bottom: 8),
-                              child: Row(
-                                children: [
+                                  child: Row(
+                                    children: [
                                   Checkbox(
                                     value: member['isVerified'] ?? false,
                                     onChanged: (value) => _updateMemberVerification(index, value ?? false),
                                     activeColor: AppTheme.accentColor,
-                                  ),
-                                  const SizedBox(width: 8),
+                                      ),
+                                      const SizedBox(width: 8),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(
+                                      Text(
                                           member['name'] ?? 'Unknown',
-                                          style: TextStyle(
+                                        style: TextStyle(
                                             color: AppTheme.textPrimaryColor,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                        Text(
+                                      Text(
                                           member['role'] ?? 'Member',
-                                          style: TextStyle(
-                                            color: AppTheme.textSecondaryColor,
-                                            fontSize: 12,
-                                          ),
+                                        style: TextStyle(
+                                          color: AppTheme.textSecondaryColor,
+                                          fontSize: 12,
                                         ),
-                                      ],
+                                      ),
+                                    ],
                                     ),
                                   ),
                                 ],
-                              ),
-                            );
-                          },
                         ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
+          ),
+        ],
+      ),
       ),
       actions: [
         TextButton(
