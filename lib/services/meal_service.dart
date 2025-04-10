@@ -378,29 +378,69 @@ class MealService {
   
   // Generate QR code and update member document
   Future<String> generateAndStoreMemberQR(String memberId, String memberName, String teamName) async {
-    // Generate a unique QR secret
-    final qrSecret = _generateQRSecret();
-    
-    // Update member document with the QR secret and device info
-    await _firestore.collection('members').doc(memberId).update({
-      'qrSecret': qrSecret,
-      'device': Platform.isIOS ? 'iOS' : 'Android',
-    });
-    
-    // Generate QR code using the member information and the secret
-    return generateQRCode(memberName, teamName, qrSecret: qrSecret);
+    try {
+      // Generate a unique QR secret
+      final qrSecret = _generateQRSecret();
+      
+      developer.log('Generating and storing new QR secret for member: $memberName (ID: $memberId)');
+      
+      try {
+        // Update member document with the QR secret and device info
+        await _firestore.collection('members').doc(memberId).update({
+          'qrSecret': qrSecret,
+          'device': Platform.isIOS ? 'iOS' : 'Android',
+          'lastQRUpdate': FieldValue.serverTimestamp(),
+        });
+        developer.log('Successfully stored QR secret for member: $memberName');
+      } catch (e) {
+        developer.log('Error updating member QR secret: $e - attempting to create document instead');
+        
+        // If update fails because document doesn't exist, try to create it
+        await _firestore.collection('members').doc(memberId).set({
+          'qrSecret': qrSecret,
+          'device': Platform.isIOS ? 'iOS' : 'Android',
+          'lastQRUpdate': FieldValue.serverTimestamp(),
+          'name': memberName,
+          'teamName': teamName,
+          'isBreakfastConsumed': false,
+          'isLunchConsumed': false,
+          'isDinnerConsumed': false,
+          'isTestMealConsumed': false,
+        }, SetOptions(merge: true));
+        
+        developer.log('Created/updated member document with QR secret for: $memberName');
+      }
+      
+      // Generate QR code using the member information and the secret
+      return generateQRCode(memberName, teamName, qrSecret: qrSecret);
+    } catch (e) {
+      developer.log('Error in generateAndStoreMemberQR: $e');
+      // If all else fails, fall back to a temporary QR code
+      return generateQRCode(memberName, teamName);
+    }
   }
   
   // Get a member's stored QR secret
   Future<String?> getMemberQRSecret(String memberId) async {
     try {
+      developer.log('Fetching QR secret for member ID: $memberId');
       final memberDoc = await _firestore.collection('members').doc(memberId).get();
+      
       if (!memberDoc.exists) {
+        developer.log('Member document not found for ID: $memberId');
         return null;
       }
       
       final memberData = memberDoc.data()!;
-      return memberData['qrSecret'] as String?;
+      final String? qrSecret = memberData['qrSecret'] as String?;
+      
+      if (qrSecret == null || qrSecret.isEmpty) {
+        developer.log('No QR secret found in document for member ID: $memberId');
+        return null;
+      }
+      
+      developer.log('Successfully retrieved QR secret for member ID: $memberId');
+      return qrSecret;
     } catch (e) {
       developer.log('Error getting member QR secret: $e');
       return null;
@@ -412,7 +452,14 @@ class MealService {
     // Get stored QR secret
     final qrSecret = await getMemberQRSecret(memberId);
     
-    // Generate QR code using the secret if available
+    // If no secret is found, generate and store a new one
+    if (qrSecret == null || qrSecret.isEmpty) {
+      developer.log('No QR secret found for $memberName, generating new one');
+      return await generateAndStoreMemberQR(memberId, memberName, teamName);
+    }
+    
+    developer.log('Using existing QR secret for $memberName');
+    // Generate QR code using the secret
     return generateQRCode(memberName, teamName, qrSecret: qrSecret);
   }
   

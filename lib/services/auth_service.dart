@@ -244,6 +244,9 @@ class AuthService {
     required String password,
   }) async {
     try {
+      // Ensure any previous session is cleared first
+      await signOut();
+      
       developer.log('Attempting login for username: $username');
       
       // Check for members by username first (team leaders and members)
@@ -277,11 +280,11 @@ class AuthService {
           final teamId = memberData['teamId'];
           
           // Get team data
-          developer.log('Retrieving team data for $userRole');
+          developer.log('Retrieving team data for $userRole with teamId: $teamId');
           final teamSnapshot = await _firestore.collection('teams').doc(teamId).get();
           
           if (teamSnapshot.exists) {
-            developer.log('Team data found');
+            developer.log('Team data found for team: ${teamSnapshot.id}');
             final teamData = teamSnapshot.data() as Map<String, dynamic>;
             
             // Check if team is registered
@@ -290,16 +293,35 @@ class AuthService {
               continue;
             }
             
+            // Create Firebase Auth session for this user
+            final userEmail = memberData['email'] as String;
+            developer.log('Setting up Firebase Auth session for: $userEmail');
+            
+            try {
+              // Log in with Firebase Auth to establish the session
+              await _auth.signInWithEmailAndPassword(
+                email: userEmail,
+                password: memberData['password'] as String,
+              );
+              developer.log('Firebase Auth session established for: ${_auth.currentUser?.email}');
+            } catch (authError) {
+              developer.log('Failed to establish Firebase Auth session: $authError');
+              // Continue with Firestore data anyway since we've verified credentials
+            }
+            
             final team = Team.fromJson(teamData);
             
             // Explicitly log user role for debugging
             developer.log('Login successful with role: $userRole');
+            developer.log('Loaded user data: ${memberData['name']} (${memberData['email']}) from ${teamData['teamName']}');
             
             return {
               'success': true,
               'team': team,
               'userRole': userRole,
+              'userId': memberDoc.id,
               'userName': memberData['name'],
+              'userEmail': memberData['email'],
               'message': 'Login successful as $userRole',
             };
           }
@@ -310,48 +332,6 @@ class AuthService {
           'success': false,
           'message': 'Invalid credentials or unregistered account',
         };
-      }
-      
-      // If username not found directly, try fuzzy matching for leaders
-      developer.log('Username not found directly, checking for leader with fuzzy match');
-      final leadersQuery = await _firestore
-          .collection('members')
-          .where('role', isEqualTo: 'leader')
-          .get();
-          
-      for (var doc in leadersQuery.docs) {
-        final data = doc.data();
-        final storedUsername = data['username'] as String? ?? '';
-        
-        // Check if the stored username contains the input or vice versa
-        if (storedUsername.contains(username) || username.contains(storedUsername)) {
-          developer.log('Found potential leader match: $storedUsername');
-          
-          // Verify password
-          if (data['password'] == password) {
-            developer.log('Password verification successful for leader match');
-            
-            final teamId = data['teamId'];
-            
-            // Get team data
-            developer.log('Retrieving team data for leader');
-            final teamSnapshot = await _firestore.collection('teams').doc(teamId).get();
-            
-            if (teamSnapshot.exists) {
-              developer.log('Team data found');
-              final teamData = teamSnapshot.data() as Map<String, dynamic>;
-              
-              final team = Team.fromJson(teamData);
-              return {
-                'success': true,
-                'team': team,
-                'userRole': 'leader',
-                'userName': data['name'],
-                'message': 'Leader login successful',
-              };
-            }
-          }
-        }
       }
       
       // If not found yet, try Firebase auth + email lookup
@@ -366,12 +346,13 @@ class AuthService {
           password: password,
         );
         
+        developer.log('Firebase Auth successful, checking document by email ID: $email');
+        
         // Check if this is a member login by email document ID
-        developer.log('Firebase Auth successful, checking document by email ID');
         final memberDoc = await _firestore.collection('members').doc(email).get();
         
         if (memberDoc.exists) {
-          developer.log('Member found by email document ID');
+          developer.log('Member found by email document ID: ${memberDoc.id}');
           final memberData = memberDoc.data() as Map<String, dynamic>;
           
           // Check if registered
@@ -387,11 +368,11 @@ class AuthService {
           final teamId = memberData['teamId'];
           
           // Get team data
-          developer.log('Retrieving team data for member');
+          developer.log('Retrieving team data for member with teamId: $teamId');
           final teamSnapshot = await _firestore.collection('teams').doc(teamId).get();
           
           if (teamSnapshot.exists) {
-            developer.log('Team data found');
+            developer.log('Team data found for team: ${teamSnapshot.id}');
             final teamData = teamSnapshot.data() as Map<String, dynamic>;
             
             // Check if team is registered
@@ -405,11 +386,16 @@ class AuthService {
             }
             
             final team = Team.fromJson(teamData);
+            
+            developer.log('Loaded user data: ${memberData['name']} (${memberData['email']}) from ${teamData['teamName']}');
+            
             return {
               'success': true,
               'team': team,
               'userRole': memberData['role'],
+              'userId': memberDoc.id,
               'userName': memberData['name'],
+              'userEmail': memberData['email'],
               'message': 'Login successful',
             };
           } else {
@@ -433,6 +419,7 @@ class AuthService {
       };
     } catch (e) {
       developer.log('Unexpected Error: $e');
+      await _auth.signOut();
       return {
         'success': false,
         'message': 'An unexpected error occurred: $e',

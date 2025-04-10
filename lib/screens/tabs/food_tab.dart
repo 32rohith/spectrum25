@@ -10,7 +10,16 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 
 class FoodTab extends StatefulWidget {
-  const FoodTab({super.key});
+  final String? userId;
+  final String? userName;
+  final String? teamId;
+
+  const FoodTab({
+    super.key, 
+    this.userId,
+    this.userName,
+    this.teamId,
+  });
 
   @override
   _FoodTabState createState() => _FoodTabState();
@@ -32,6 +41,7 @@ class _FoodTabState extends State<FoodTab> {
   @override
   void initState() {
     super.initState();
+    developer.log('FoodTab initialized with userId: ${widget.userId}, userName: ${widget.userName}');
     _loadUserData();
   }
   
@@ -42,7 +52,87 @@ class _FoodTabState extends State<FoodTab> {
     });
     
     try {
-      // Try to get the member info from Firestore
+      // If we have a userId, use it to get the member's data
+      if (widget.userId != null && widget.userId!.isNotEmpty) {
+        developer.log('Loading member data for userId: ${widget.userId}');
+        final memberDoc = await _firestore.collection('members').doc(widget.userId).get();
+        
+        if (memberDoc.exists) {
+          final memberData = memberDoc.data()!;
+          _memberId = memberDoc.id;
+          _memberData = memberData;
+          
+          String name = memberData['name'] ?? widget.userName ?? '';
+          String teamId = memberData['teamId'] ?? widget.teamId ?? '';
+          String teamName = memberData['teamName'] ?? '';
+          
+          // Get team name if teamId exists but teamName doesn't
+          if (teamId.isNotEmpty && teamName.isEmpty) {
+            final teamDoc = await _firestore.collection('teams').doc(teamId).get();
+            if (teamDoc.exists) {
+              final teamData = teamDoc.data();
+              teamName = teamData?['teamName'] ?? teamData?['name'] ?? '';
+            }
+          }
+          
+          setState(() {
+            _memberName = name;
+            _teamName = teamName;
+          });
+          
+          developer.log('Loaded user data: $_memberName from $_teamName');
+          
+          // Check if member has a QR secret, if not create one
+          await _ensureMemberHasQRCode();
+          await _loadMeals();
+          return;
+        }
+      }
+      
+      // Try to get the member info by userName if userId didn't work
+      if (widget.userName != null && widget.userName!.isNotEmpty) {
+        developer.log('Trying to find member by name: ${widget.userName}');
+        final membersSnapshot = await _firestore
+            .collection('members')
+            .where('name', isEqualTo: widget.userName)
+            .limit(1)
+            .get();
+            
+        if (membersSnapshot.docs.isNotEmpty) {
+          final memberDoc = membersSnapshot.docs.first;
+          final memberData = memberDoc.data();
+          _memberId = memberDoc.id;
+          _memberData = memberData;
+          
+          String name = memberData['name'] ?? '';
+          String teamId = memberData['teamId'] ?? widget.teamId ?? '';
+          String teamName = memberData['teamName'] ?? '';
+          
+          // Get team name if needed
+          if (teamId.isNotEmpty && teamName.isEmpty) {
+            final teamDoc = await _firestore.collection('teams').doc(teamId).get();
+            if (teamDoc.exists) {
+              final teamData = teamDoc.data();
+              teamName = teamData?['teamName'] ?? teamData?['name'] ?? '';
+            }
+          }
+          
+          setState(() {
+            _memberName = name;
+            _teamName = teamName;
+          });
+          
+          developer.log('Loaded user data by name: $_memberName from $_teamName');
+          
+          // Check if member has a QR secret, if not create one
+          await _ensureMemberHasQRCode();
+          await _loadMeals();
+          return;
+        }
+      }
+      
+      // Fallback: Try to get the first member as before (legacy behavior)
+      developer.log('No specific user ID or name provided, using first member in collection');
       final membersSnapshot = await _firestore.collection('members').limit(1).get();
       
       if (membersSnapshot.docs.isNotEmpty) {
@@ -53,10 +143,10 @@ class _FoodTabState extends State<FoodTab> {
         
         String name = memberData['name'] ?? '';
         String teamId = memberData['teamId'] ?? '';
-        String teamName = '';
+        String teamName = memberData['teamName'] ?? '';
         
         // Get team name if teamId exists
-        if (teamId.isNotEmpty) {
+        if (teamId.isNotEmpty && teamName.isEmpty) {
           final teamDoc = await _firestore.collection('teams').doc(teamId).get();
           if (teamDoc.exists) {
             final teamData = teamDoc.data();
@@ -69,7 +159,7 @@ class _FoodTabState extends State<FoodTab> {
           _teamName = teamName;
         });
         
-        developer.log('Loaded user data: $_memberName from $_teamName');
+        developer.log('Loaded first member data: $_memberName from $_teamName');
         
         // Check if member has a QR secret, if not create one
         await _ensureMemberHasQRCode();
@@ -136,10 +226,12 @@ class _FoodTabState extends State<FoodTab> {
       }
       
       final memberData = memberDoc.data()!;
+      developer.log('Checking QR secret for member: $_memberName (ID: $_memberId)');
       
       // Check if member already has a QR secret
-      if (memberData['qrSecret'] == null) {
+      if (memberData['qrSecret'] == null || memberData['qrSecret'] == '') {
         // Generate and store a new QR secret
+        developer.log('No QR secret found, generating new one for member: $_memberName');
         final String qrData = await _mealService.generateAndStoreMemberQR(
           _memberId,
           _memberName,
@@ -150,9 +242,10 @@ class _FoodTabState extends State<FoodTab> {
           _qrData = qrData;
         });
         
-        developer.log('Generated new permanent QR code for member');
+        developer.log('Generated new permanent QR code for member: $_memberName');
       } else {
         // Use existing QR secret to generate QR code
+        developer.log('Found existing QR secret for member: $_memberName');
         final String qrData = await _mealService.generateQRWithStoredSecret(
           _memberId,
           _memberName,
@@ -163,7 +256,7 @@ class _FoodTabState extends State<FoodTab> {
           _qrData = qrData;
         });
         
-        developer.log('Using existing QR code with stored secret for member');
+        developer.log('Using existing QR code with stored secret for member: $_memberName');
       }
     } catch (e) {
       developer.log('Error ensuring member has QR code: $e');
@@ -177,12 +270,16 @@ class _FoodTabState extends State<FoodTab> {
       setState(() {
         _qrData = qrData;
       });
+      
+      developer.log('Generated temporary fallback QR code for: $_memberName');
     }
   }
   
   // Create a new member document with QR code
   Future<void> _createMemberWithQRCode() async {
     try {
+      developer.log('Creating or finding member document for: $_memberName from $_teamName');
+      
       // First find if member document already exists
       final membersSnapshot = await _firestore
           .collection('members')
@@ -196,17 +293,43 @@ class _FoodTabState extends State<FoodTab> {
         _memberId = membersSnapshot.docs.first.id;
         _memberData = membersSnapshot.docs.first.data();
         
+        developer.log('Found existing member document with ID: $_memberId');
+        
         // Check if QR secret exists, if not create one
         await _ensureMemberHasQRCode();
       } else {
-        // Create a new member document
-        final newMemberRef = _firestore.collection('members').doc();
+        // Create a new member document with a generated ID
+        developer.log('No existing member found, creating new document for: $_memberName');
+        
+        // If we have a userId from props, use it instead of generating a new one
+        final String documentId = widget.userId ?? '';
+        final DocumentReference newMemberRef = documentId.isNotEmpty ? 
+          _firestore.collection('members').doc(documentId) :
+          _firestore.collection('members').doc();
+          
         _memberId = newMemberRef.id;
+        developer.log('Creating member with ID: $_memberId');
+        
+        // Get team ID if possible
+        String teamId = widget.teamId ?? '';
+        if (teamId.isEmpty) {
+          // Try to find team by name
+          final teamsSnapshot = await _firestore
+              .collection('teams')
+              .where('teamName', isEqualTo: _teamName)
+              .limit(1)
+              .get();
+              
+          if (teamsSnapshot.docs.isNotEmpty) {
+            teamId = teamsSnapshot.docs.first.id;
+          }
+        }
         
         // Create base member data
         final Map<String, dynamic> memberData = {
           'name': _memberName,
           'teamName': _teamName,
+          'teamId': teamId,
           'isBreakfastConsumed': false,
           'isLunchConsumed': false,
           'isDinnerConsumed': false,
@@ -218,6 +341,8 @@ class _FoodTabState extends State<FoodTab> {
         
         // Save initial document
         await newMemberRef.set(memberData);
+        developer.log('Created new member document with data: $memberData');
+        
         _memberData = memberData;
         
         // Generate and store QR code
@@ -231,10 +356,10 @@ class _FoodTabState extends State<FoodTab> {
           _qrData = qrData;
         });
         
-        developer.log('Created new member with QR code');
+        developer.log('Generated and stored new permanent QR code for: $_memberName');
       }
     } catch (e) {
-      developer.log('Error creating member with QR code: $e');
+      developer.log('Error creating member with QR code: $e', error: e);
       
       // Fallback to generate a temporary QR code
       final String qrData = _mealService.generateQRCode(
@@ -245,6 +370,8 @@ class _FoodTabState extends State<FoodTab> {
       setState(() {
         _qrData = qrData;
       });
+      
+      developer.log('Generated temporary fallback QR code after error');
     }
   }
 

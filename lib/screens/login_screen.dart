@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui';
+import 'dart:developer' as developer;
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../services/auth_service.dart';
@@ -24,6 +25,22 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _showPassword = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Check if there's any existing session and sign out
+    _clearPreviousSession();
+  }
+
+  Future<void> _clearPreviousSession() async {
+    try {
+      await _authService.signOut();
+      developer.log('Previous session cleared on login screen init');
+    } catch (e) {
+      developer.log('Error clearing previous session: $e');
+    }
+  }
+
+  @override
   void dispose() {
     _usernameController.dispose();
     _passwordController.dispose();
@@ -40,16 +57,22 @@ class _LoginScreenState extends State<LoginScreen> {
       final username = _usernameController.text.trim();
       final password = _passwordController.text.trim();
 
-      print('Attempting login with: Username: $username');
+      developer.log('Attempting login with: Username: $username');
       
       final result = await _authService.loginTeam(
         username: username,
         password: password,
       );
 
-      print('Login result: ${result['success']} - ${result['message']}');
+      developer.log('Login result: ${result['success']} - ${result['message']}');
       if (result['userRole'] != null) {
-        print('User role: ${result['userRole']}');
+        developer.log('User role: ${result['userRole']}');
+      }
+      if (result['userId'] != null) {
+        developer.log('User ID: ${result['userId']}');
+      }
+      if (result['userEmail'] != null) {
+        developer.log('User Email: ${result['userEmail']}');
       }
 
       setState(() {
@@ -59,29 +82,41 @@ class _LoginScreenState extends State<LoginScreen> {
       if (result['success']) {
         // Get user role from result
         String userRole = result['userRole'] ?? '';
-        print('Processing successful login with role: $userRole');
+        String userName = result['userName'] ?? '';
+        String userEmail = result['userEmail'] ?? '';
+        
+        developer.log('Processing successful login with role: $userRole, name: $userName, email: $userEmail');
         
         // Navigate to appropriate screen based on verification status
         if (!result['team'].isVerified) {
+          developer.log('Team not verified, navigating to QR verification');
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (context) => QRVerificationScreen(team: result['team']),
+              builder: (context) => QRVerificationScreen(
+                team: result['team'],
+                userRole: userRole,
+                userId: result['userId'],
+              ),
             ),
           );
         } else {
-          // Navigate to main screen based on role - both go to MainAppScreen
+          // Navigate to main screen
+          developer.log('Team verified, navigating to main app screen');
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (context) => MainAppScreen(team: result['team']),
+              builder: (context) => MainAppScreen(
+                team: result['team'],
+                userRole: userRole,
+                userName: userName,
+                userId: result['userId'],
+              ),
             ),
           );
           
           // Show welcome message based on role
-          String roleMessage = userRole == 'leader' 
-              ? 'Welcome Team Leader!' 
-              : 'Welcome Team Member!';
+          String roleMessage = 'Welcome $userName! Logged in as ${userRole == 'leader' ? 'Team Leader' : 'Team Member'}';
           
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

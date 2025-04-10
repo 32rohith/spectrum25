@@ -12,10 +12,16 @@ import 'tabs/project_submission_tab.dart';
 
 class MainAppScreen extends StatefulWidget {
   final Team team;
+  final String? userRole;
+  final String? userName;
+  final String? userId;
 
   const MainAppScreen({
     super.key,
     required this.team,
+    this.userRole,
+    this.userName,
+    this.userId,
   });
 
   @override
@@ -31,6 +37,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
   void initState() {
     super.initState();
     developer.log('Initializing MainAppScreen with team: ${widget.team.teamName}, verified: ${widget.team.isVerified}');
+    developer.log('User info - Role: ${widget.userRole}, Name: ${widget.userName}, ID: ${widget.userId}');
     
     // Make sure team is verified
     if (!widget.team.isVerified) {
@@ -40,9 +47,13 @@ class _MainAppScreenState extends State<MainAppScreen> {
     _tabs = [
       LeaderboardTab(),
       TeamDetailsTab(team: widget.team),
-      HomeTab(team: widget.team),
-      FoodTab(),
-      ProjectSubmissionTab(team: widget.team),
+      HomeTab(team: widget.team, userName: widget.userName, userRole: widget.userRole),
+      FoodTab(
+        userId: widget.userId,
+        userName: widget.userName,
+        teamId: widget.team.teamId,
+      ),
+      ProjectSubmissionTab(team: widget.team, userId: widget.userId),
     ];
   }
 

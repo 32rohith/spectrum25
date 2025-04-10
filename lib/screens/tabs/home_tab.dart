@@ -5,10 +5,14 @@ import '../../widgets/common_widgets.dart';
 
 class HomeTab extends StatelessWidget {
   final Team team;
+  final String? userName;
+  final String? userRole;
 
   const HomeTab({
     super.key,
     required this.team,
+    this.userName,
+    this.userRole,
   });
 
   bool isEventActive(String timeStr, {bool isNextDay = false}) {
@@ -54,6 +58,49 @@ class HomeTab extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Welcome message with user info
+            if (userName != null)
+              GlassCard(
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.person,
+                        color: AppTheme.primaryColor,
+                        size: 36,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Welcome, $userName!',
+                              style: TextStyle(
+                                color: AppTheme.textPrimaryColor,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (userRole != null)
+                              Text(
+                                'Logged in as ${userRole == 'leader' ? 'Team Leader' : 'Team Member'}',
+                                style: TextStyle(
+                                  color: AppTheme.textSecondaryColor,
+                                  fontSize: 14,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            
+            const SizedBox(height: 16),
+            
             // Spectrum Agenda
             Text(
               '',

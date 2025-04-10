@@ -10,10 +10,14 @@ import 'main_app_screen.dart';
 
 class QRVerificationScreen extends StatefulWidget {
   final Team team;
+  final String? userRole;
+  final String? userId;
 
   const QRVerificationScreen({
     super.key,
     required this.team,
+    this.userRole,
+    this.userId,
   });
 
   @override
@@ -50,7 +54,11 @@ class _QRVerificationScreenState extends State<QRVerificationScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => MainAppScreen(team: widget.team),
+            builder: (context) => MainAppScreen(
+              team: widget.team,
+              userRole: widget.userRole,
+              userId: widget.userId,
+            ),
           ),
         );
       }
@@ -111,7 +119,11 @@ class _QRVerificationScreenState extends State<QRVerificationScreen> {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (context) => MainAppScreen(team: verifiedTeam),
+                builder: (context) => MainAppScreen(
+                  team: verifiedTeam,
+                  userRole: widget.userRole,
+                  userId: widget.userId,
+                ),
               ),
             );
           }
