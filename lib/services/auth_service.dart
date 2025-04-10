@@ -4,15 +4,25 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/team.dart';
 import 'dart:developer' as developer;
 
+// Extension to capitalize the first letter of a string
+extension StringExtension on String {
+  String capitalize() {
+    if (this.isEmpty) return this;
+    return this[0].toUpperCase() + this.substring(1);
+  }
+}
+
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   
   // Generate a unique username and password
-  Map<String, String> _generateCredentials(String prefix) {
+  Map<String, String> _generateCredentials(String prefix, String role) {
     final random = Random();
-    final username = '${prefix.toLowerCase().replaceAll(' ', '')}_${random.nextInt(10000)}';
-    final password = 'Pass${random.nextInt(10000)}'; // Simple password format with random number
+    // Make usernames more descriptive
+    final username = '${prefix.toLowerCase().replaceAll(' ', '_')}_${role}_${random.nextInt(10000)}';
+    // Create stronger passwords with role prefix
+    final password = '${role.capitalize()}@${random.nextInt(10000)}';
     
     return {
       'username': username,
@@ -30,7 +40,7 @@ class AuthService {
       developer.log('Starting team registration process for: $teamName');
       
       // Generate team credentials
-      final teamCredentials = _generateCredentials(teamName);
+      final teamCredentials = _generateCredentials(teamName, 'team');
       final teamUsername = teamCredentials['username']!;
       final teamPassword = teamCredentials['password']!;
       
@@ -47,8 +57,8 @@ class AuthService {
       final teamId = teamUserCredential.user!.uid;
       developer.log('Team account created with ID: $teamId');
       
-      // Generate leader credentials
-      final leaderCredentials = _generateCredentials(leader.name);
+      // Generate leader credentials with specific role
+      final leaderCredentials = _generateCredentials(leader.name, 'leader');
       final leaderUsername = leaderCredentials['username']!;
       final leaderPassword = leaderCredentials['password']!;
       final leaderEmail = '$leaderUsername@hackathon.app';
@@ -101,8 +111,8 @@ class AuthService {
         final member = members[i];
         developer.log('Processing member ${i+1}: ${member.name}');
         
-        // Generate member credentials
-        final memberCredentials = _generateCredentials(member.name);
+        // Generate member credentials with specific role
+        final memberCredentials = _generateCredentials(member.name, 'member');
         final memberUsername = memberCredentials['username']!;
         final memberPassword = memberCredentials['password']!;
         final memberEmail = '$memberUsername@hackathon.app';
@@ -195,10 +205,6 @@ class AuthService {
         'team': team,
         'message': 'Team registered successfully',
         'teamAuth': {
-          'username': teamUsername,
-          'password': teamPassword,
-        },
-        'leaderAuth': {
           'username': leaderUsername,
           'password': leaderPassword,
         },
@@ -233,26 +239,142 @@ class AuthService {
     try {
       developer.log('Attempting login for username: $username');
       
+      // Check for members by username first (team leaders and members)
+      developer.log('Checking login by username match');
+      final memberQuery = await _firestore
+          .collection('members')
+          .where('username', isEqualTo: username)
+          .limit(1)
+          .get();
+          
+      // If found a member/leader by exact username
+      if (memberQuery.docs.isNotEmpty) {
+        final memberDoc = memberQuery.docs.first;
+        final memberData = memberDoc.data();
+        final userRole = memberData['role'] as String? ?? '';
+        
+        developer.log('Found user account by username: $userRole');
+        
+        // Verify password
+        if (memberData['password'] != password) {
+          developer.log('Password verification failed');
+          return {
+            'success': false,
+            'message': 'Invalid password',
+          };
+        }
+
+        // Check if registered
+        if (memberData['isRegistered'] != true) {
+          developer.log('Account not registered');
+          return {
+            'success': false,
+            'message': 'This account has not been properly registered',
+          };
+        }
+        
+        final teamId = memberData['teamId'];
+        
+        // Get team data
+        developer.log('Retrieving team data for $userRole');
+        final teamSnapshot = await _firestore.collection('teams').doc(teamId).get();
+        
+        if (teamSnapshot.exists) {
+          developer.log('Team data found');
+          final teamData = teamSnapshot.data() as Map<String, dynamic>;
+          
+          // Check if team is registered
+          if (teamData['isRegistered'] != true) {
+            developer.log('Team not registered');
+            return {
+              'success': false,
+              'message': 'This team has not been properly registered',
+            };
+          }
+          
+          final team = Team.fromJson(teamData);
+          return {
+            'success': true,
+            'team': team,
+            'userRole': userRole,
+            'userName': memberData['name'],
+            'message': 'Login successful as $userRole',
+          };
+        } else {
+          developer.log('Team not found');
+          return {
+            'success': false,
+            'message': 'Team not found',
+          };
+        }
+      }
+      
+      // If username not found directly, try fuzzy matching for leaders
+      developer.log('Username not found directly, checking for leader with fuzzy match');
+      final leadersQuery = await _firestore
+          .collection('members')
+          .where('role', isEqualTo: 'leader')
+          .get();
+          
+      for (var doc in leadersQuery.docs) {
+        final data = doc.data();
+        final storedUsername = data['username'] as String? ?? '';
+        
+        // Check if the stored username contains the input or vice versa
+        if (storedUsername.contains(username) || username.contains(storedUsername) || 
+            (username.contains('leader') && storedUsername.contains(username.replaceAll('leader', '')))) {
+          developer.log('Found potential leader match: $storedUsername');
+          
+          // Verify password
+          if (data['password'] == password) {
+            developer.log('Password verification successful for leader match');
+            
+            final teamId = data['teamId'];
+            
+            // Get team data
+            developer.log('Retrieving team data for leader');
+            final teamSnapshot = await _firestore.collection('teams').doc(teamId).get();
+            
+            if (teamSnapshot.exists) {
+              developer.log('Team data found');
+              final teamData = teamSnapshot.data() as Map<String, dynamic>;
+              
+              final team = Team.fromJson(teamData);
+              return {
+                'success': true,
+                'team': team,
+                'userRole': 'leader',
+                'userName': data['name'],
+                'message': 'Leader login successful',
+              };
+            }
+          }
+        }
+      }
+      
+      // If not found yet, try Firebase auth + email lookup
       // Create email from username for Firebase Auth
       final email = '$username@hackathon.app';
+      developer.log('Not found by username query, trying Firebase Auth with email: $email');
       
       try {
         // Attempt to login with Firebase Auth
-        developer.log('Authenticating with Firebase');
         await _auth.signInWithEmailAndPassword(
           email: email,
           password: password,
         );
         
-        // Check if this is a member or leader login
-        developer.log('Checking if member/leader login');
+        // Check if this is a member login by email document ID
+        developer.log('Firebase Auth successful, checking document by email ID');
         final memberDoc = await _firestore.collection('members').doc(email).get();
         
         if (memberDoc.exists) {
+          developer.log('Member found by email document ID');
           final memberData = memberDoc.data() as Map<String, dynamic>;
           
           // Check if registered
           if (memberData['isRegistered'] != true) {
+            developer.log('Account not registered');
             await _auth.signOut();
             return {
               'success': false,
@@ -263,7 +385,7 @@ class AuthService {
           final teamId = memberData['teamId'];
           
           // Get team data
-          developer.log('Retrieving team data for member/leader');
+          developer.log('Retrieving team data for member');
           final teamSnapshot = await _firestore.collection('teams').doc(teamId).get();
           
           if (teamSnapshot.exists) {
@@ -272,6 +394,7 @@ class AuthService {
             
             // Check if team is registered
             if (teamData['isRegistered'] != true) {
+              developer.log('Team not registered');
               await _auth.signOut();
               return {
                 'success': false,
@@ -287,31 +410,29 @@ class AuthService {
               'userName': memberData['name'],
               'message': 'Login successful',
             };
+          } else {
+            developer.log('Team not found');
+            await _auth.signOut();
+            return {
+              'success': false,
+              'message': 'Team not found',
+            };
           }
+        } else {
+          developer.log('No member document found by email ID');
+          await _auth.signOut();
         }
-        
-        // No matching account found
-        developer.log('No matching account found');
-        await _auth.signOut();
-        return {
-          'success': false,
-          'message': 'Account not found or invalid credentials',
-        };
       } on FirebaseAuthException catch (e) {
-        developer.log('Firebase Auth Error during login: ${e.code} - ${e.message}');
-        
-        if (e.code == 'user-not-found' || e.code == 'wrong-password') {
-          return {
-            'success': false,
-            'message': 'Invalid username or password',
-          };
-        }
-        
-        return {
-          'success': false,
-          'message': e.message ?? 'Authentication failed',
-        };
+        developer.log('Firebase Auth Error: ${e.code} - ${e.message}');
       }
+      
+      // No matching account found
+      developer.log('No matching account found');
+      await _auth.signOut();
+      return {
+        'success': false,
+        'message': 'Account not found or invalid credentials',
+      };
     } catch (e) {
       developer.log('Unexpected Error: $e');
       return {
@@ -360,17 +481,43 @@ class AuthService {
         developer.log('Current user found: ${user.email}');
         final email = user.email;
         
-        // Check if this is a member login
         if (email != null) {
-          developer.log('Checking if member account');
+          // Try to get user by email document ID
+          developer.log('Checking for member by email document ID');
           final memberDoc = await _firestore.collection('members').doc(email).get();
+          
           if (memberDoc.exists) {
-            developer.log('Member account found');
+            developer.log('Member account found by email');
             final memberData = memberDoc.data() as Map<String, dynamic>;
             final teamId = memberData['teamId'];
             
             // Get team data
             developer.log('Retrieving team data for member');
+            final teamSnapshot = await _firestore.collection('teams').doc(teamId).get();
+            if (teamSnapshot.exists) {
+              developer.log('Team data found');
+              return Team.fromJson(teamSnapshot.data() as Map<String, dynamic>);
+            }
+          }
+          
+          // If not found by email, try to query by username (for team leaders)
+          final username = email.split('@')[0];
+          developer.log('Checking for leader by username: $username');
+          
+          final leaderQuery = await _firestore
+              .collection('members')
+              .where('username', isEqualTo: username)
+              .where('role', isEqualTo: 'leader')
+              .limit(1)
+              .get();
+              
+          if (leaderQuery.docs.isNotEmpty) {
+            developer.log('Leader account found by username');
+            final leaderData = leaderQuery.docs.first.data();
+            final teamId = leaderData['teamId'];
+            
+            // Get team data
+            developer.log('Retrieving team data for leader');
             final teamSnapshot = await _firestore.collection('teams').doc(teamId).get();
             if (teamSnapshot.exists) {
               developer.log('Team data found');

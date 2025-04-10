@@ -41,10 +41,20 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     if (_formKey.currentState!.validate()) {
+      final username = _usernameController.text.trim();
+      final password = _passwordController.text.trim();
+
+      print('Attempting login with: Username: $username, IsLeader: ${widget.isLeader}, IsMember: ${widget.isMember}');
+      
       final result = await _authService.loginTeam(
-        username: _usernameController.text.trim(),
-        password: _passwordController.text.trim(),
+        username: username,
+        password: password,
       );
+
+      print('Login result: ${result['success']} - ${result['message']}');
+      if (result['userRole'] != null) {
+        print('User role: ${result['userRole']}');
+      }
 
       setState(() {
         _isLoading = false;
@@ -58,11 +68,23 @@ class _LoginScreenState extends State<LoginScreen> {
             (widget.isMember && userRole != 'member')) {
           setState(() {
             _errorMessage = widget.isLeader 
-                ? 'These credentials are not for a team leader'
-                : 'These credentials are not for a team member';
+                ? 'These credentials are for a team member, not a leader. Please use leader login page.'
+                : 'These credentials are for a team leader, not a member. Please use leader login page.';
           });
           return;
         }
+        
+        // Success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Login successful! Welcome ${result['userName'] ?? 'back'}!',
+              style: const TextStyle(color: Colors.white),
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
         
         // Navigate to QR verification if not verified yet
         if (!result['team'].isVerified) {
