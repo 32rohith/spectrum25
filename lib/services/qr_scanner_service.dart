@@ -7,9 +7,22 @@ import 'auth_service.dart';
 class QRScannerService {
   final AuthService _authService = AuthService();
   
-  Future<Map<String, dynamic>> processQRCode(String qrData) async {
+  Future<Map<String, dynamic>> processQRCode(String qrData, {String? mealType}) async {
     try {
       developer.log('Processing QR code: $qrData');
+      
+      // If meal type is provided, try to verify meal QR code
+      if (mealType != null) {
+        developer.log('Attempting to verify meal QR code for $mealType');
+        try {
+          final result = await _authService.verifyMealQRCode(qrData, mealType);
+          developer.log('Meal verification result: $result');
+          return result;
+        } catch (e) {
+          developer.log('Error verifying meal QR code: $e');
+          // If not a meal QR code, continue with other verification attempts
+        }
+      }
       
       // Check if QR data is valid for team verification
       if (qrData.startsWith('verify_team:')) {
@@ -22,6 +35,14 @@ class QRScannerService {
         developer.log('Team verification result: $result');
         return result;
       } 
+      // Check if this is a meal QR code by pattern matching
+      else if (qrData.contains('_MEAL_')) {
+        // If no meal type was specified but this looks like a meal code
+        return {
+          'success': false,
+          'message': 'Meal QR code detected but no meal type specified. Please scan from meal scanner.',
+        };
+      }
       // Check if this is an OC verification QR code
       else if (qrData.contains('"id"') && qrData.contains('"ocCode"') && qrData.contains('"timestamp"')) {
         try {

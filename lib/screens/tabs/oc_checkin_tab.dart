@@ -280,7 +280,7 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -293,117 +293,97 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
               ),
             ),
             const SizedBox(height: 8),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                // Use LayoutBuilder to get available width
-                return constraints.maxWidth < 300 
-                  ? Text(
-                      'Verify teams',
-                      style: TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontSize: 16,
-                      ),
-                    )
-                  : Text(
-                      'Verify and check in teams for the hackathon',
-                      style: TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontSize: 16,
-                      ),
-                    );
-              },
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Verify and check in teams for the hackathon',
+                    style: TextStyle(
+                      color: AppTheme.textSecondaryColor,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             
             // Stats Cards
-            Container(
-              height: 90,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: GlassCard(
-                      padding: EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.check_circle,
-                                color: AppTheme.accentColor,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Teams Checked In',
-                                  style: TextStyle(
-                                    color: AppTheme.textSecondaryColor,
-                                    fontSize: 14,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            // Count of verified teams
-                            '${_teams.where((team) => team['isVerified'] == true).length}',
-                            style: TextStyle(
-                              color: AppTheme.textPrimaryColor,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
+            Row(
+              children: [
+                Expanded(
+                  child: GlassCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.check_circle,
+                              color: AppTheme.accentColor,
+                              size: 20,
                             ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Teams Checked In',
+                              style: TextStyle(
+                                color: AppTheme.textSecondaryColor,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          // Count of verified teams
+                          '${_teams.where((team) => team['isVerified'] == true).length}',
+                          style: TextStyle(
+                            color: AppTheme.textPrimaryColor,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: GlassCard(
-                      padding: EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.groups,
-                                color: AppTheme.primaryColor,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Total Teams',
-                                  style: TextStyle(
-                                    color: AppTheme.textSecondaryColor,
-                                    fontSize: 14,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '${_teams.length}',
-                            style: TextStyle(
-                              color: AppTheme.textPrimaryColor,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: GlassCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.groups,
+                              color: AppTheme.primaryColor,
+                              size: 20,
                             ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Total Teams',
+                              style: TextStyle(
+                                color: AppTheme.textSecondaryColor,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${_teams.length}',
+                          style: TextStyle(
+                            color: AppTheme.textPrimaryColor,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
             
             // Check-in Progress
@@ -426,31 +406,31 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                       Text(
                         _teams.isEmpty ? '0%' : 
                           '${(_teams.where((team) => team['isVerified'] == true).length * 100 / _teams.length).round()}%',
-                        style: TextStyle(
-                          color: AppTheme.accentColor,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: LinearProgressIndicator(
-                      value: _teams.isEmpty ? 0 : 
-                        _teams.where((team) => team['isVerified'] == true).length / _teams.length,
-                      minHeight: 10,
-                      backgroundColor: AppTheme.cardColor,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        AppTheme.accentColor,
+                      style: TextStyle(
+                        color: AppTheme.accentColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: LinearProgressIndicator(
+                      value: _teams.isEmpty ? 0 : 
+                        _teams.where((team) => team['isVerified'] == true).length / _teams.length,
+                    minHeight: 10,
+                    backgroundColor: AppTheme.cardColor,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      AppTheme.accentColor,
+                    ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            
+          ),
+          
             // QR Code display section
             if (_showQRCode)
               Container(
@@ -498,7 +478,7 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                       Text(
                         'QR Code refreshes automatically',
                         style: TextStyle(
-                          color: AppTheme.textSecondaryColor,
+              color: AppTheme.textSecondaryColor,
                           fontSize: 12,
                         ),
                         textAlign: TextAlign.center,
@@ -633,9 +613,9 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
               ],
             ),
             const SizedBox(height: 16),
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
                   : _error != null
                       ? Center(
                           child: Column(
@@ -659,7 +639,7 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                         )
                       : _filteredTeams.isEmpty
                           ? Center(
-                              child: Text(
+                                  child: Text(
                                 'No teams found',
                                 style: TextStyle(color: AppTheme.textSecondaryColor),
                               ),
@@ -694,18 +674,14 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                                           Row(
                                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                             children: [
-                                              Expanded(
-                                                child: Text(
-                                                  team['name'],
-                                                  style: TextStyle(
-                                                    fontSize: 18,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: AppTheme.textPrimaryColor,
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
+                                              Text(
+                                                team['name'],
+                                                style: TextStyle(
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppTheme.textPrimaryColor,
                                                 ),
                                               ),
-                                              const SizedBox(width: 8),
                                               Container(
                                                 padding: const EdgeInsets.symmetric(
                                                   horizontal: 8,
@@ -1086,20 +1062,17 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
                                 ),
                                 child: Row(
                                   children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Row(
                                             children: [
-                                              Expanded(
-                                                child: Text(
-                                                  member['name'] ?? 'Unknown',
-                                                  style: TextStyle(
-                                                    color: AppTheme.textPrimaryColor,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                  overflow: TextOverflow.ellipsis,
+                                              Text(
+                                                member['name'] ?? 'Unknown',
+                                                style: TextStyle(
+                                                  color: AppTheme.textPrimaryColor,
+                                                  fontWeight: FontWeight.bold,
                                                 ),
                                               ),
                                               const SizedBox(width: 8),
@@ -1121,28 +1094,26 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
                                                         ? AppTheme.primaryColor
                                                         : AppTheme.accentColor,
                                                     fontSize: 10,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                               ),
                                             ],
                                           ),
                                           const SizedBox(height: 4),
-                                          Text(
+                                    Text(
                                             member['email'] ?? 'No email',
-                                            style: TextStyle(
-                                              color: AppTheme.textSecondaryColor,
+                                      style: TextStyle(
+                                        color: AppTheme.textSecondaryColor,
                                               fontSize: 12,
                                             ),
-                                            overflow: TextOverflow.ellipsis,
                                           ),
                                           Text(
                                             'Phone: ${member['phone'] ?? 'Not provided'}',
-                                            style: TextStyle(
-                                              color: AppTheme.textSecondaryColor,
+                                      style: TextStyle(
+                                        color: AppTheme.textSecondaryColor,
                                               fontSize: 12,
                                             ),
-                                            overflow: TextOverflow.ellipsis,
                                           ),
                                         ],
                                       ),
@@ -1157,16 +1128,16 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
                                       },
                                       activeColor: AppTheme.accentColor,
                                       checkColor: Colors.white,
-                                    ),
-                                  ],
-                                ),
                               ),
-                            );
-                          },
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      );
+                    },
                   ),
+          ),
+        ],
+      ),
       ),
       actions: [
         if (_isSaving)

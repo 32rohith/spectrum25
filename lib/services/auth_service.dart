@@ -37,6 +37,50 @@ class AuthService {
     };
   }
   
+  // Generate a unique meal QR code for a member
+  String _generateMealQRCode(String memberId, String name) {
+    final random = Random();
+    // Generate 6 random digits
+    final sixDigits = random.nextInt(900000) + 100000; // Ensures 6 digits
+    
+    // Create a unique code with member ID and random digits
+    final code = '${memberId.substring(0, 8)}_MEAL_$sixDigits';
+    
+    return code;
+  }
+  
+  // Initialize meal tracking for a member
+  Map<String, dynamic> _initializeMealTracking() {
+    // Define meal times
+    final lunchTime = DateTime(2025, 4, 11, 11, 0); // April 11, 2025, 11:00 AM
+    final dinnerTime = DateTime(2025, 4, 11, 18, 0); // April 11, 2025, 6:00 PM
+    final breakfastTime = DateTime(2025, 4, 12, 6, 30); // April 12, 2025, 6:30 AM
+    
+    return {
+      'lunch': {
+        'dateTime': lunchTime,
+        'served': false,
+        'servedAt': null,
+        'allowedStartTime': lunchTime,
+        'allowedEndTime': DateTime(2025, 4, 11, 16, 0), // April 11, 2025, 4:00 PM
+      },
+      'dinner': {
+        'dateTime': dinnerTime,
+        'served': false,
+        'servedAt': null,
+        'allowedStartTime': dinnerTime,
+        'allowedEndTime': DateTime(2025, 4, 11, 22, 30), // April 11, 2025, 10:30 PM
+      },
+      'breakfast': {
+        'dateTime': breakfastTime,
+        'served': false,
+        'servedAt': null,
+        'allowedStartTime': breakfastTime,
+        'allowedEndTime': DateTime(2025, 4, 12, 10, 30), // April 12, 2025, 10:30 AM
+      },
+    };
+  }
+  
   // Register a new team with team leader and members
   Future<Map<String, dynamic>> registerTeam({
     required String teamName,
@@ -85,6 +129,10 @@ class AuthService {
         device: leader.device,
       );
       
+      // Generate leader meal QR code
+      final leaderMealQRCode = _generateMealQRCode(leaderUserCredential.user!.uid, leader.name);
+      final leaderMealTracking = _initializeMealTracking();
+      
       // Store leader auth details
       try {
         developer.log('Storing leader details in Firestore');
@@ -100,6 +148,8 @@ class AuthService {
           'teamId': teamId,
           'teamName': teamName,
           'isRegistered': true,
+          'mealQRCode': leaderMealQRCode,
+          'meals': leaderMealTracking,
         });
         developer.log('Leader details stored successfully');
       } catch (e) {
@@ -126,10 +176,14 @@ class AuthService {
         
         // Create member account in Firebase Auth
         developer.log('Creating Firebase Auth account for member: ${member.name}');
-        await _auth.createUserWithEmailAndPassword(
+        final memberUserCredential = await _auth.createUserWithEmailAndPassword(
           email: memberEmail,
           password: memberPassword,
         );
+        
+        // Generate member meal QR code
+        final memberMealQRCode = _generateMealQRCode(memberUserCredential.user!.uid, member.name);
+        final memberMealTracking = _initializeMealTracking();
         
         // Add to updated members list
         updatedMembers.add(TeamMember(
@@ -154,6 +208,8 @@ class AuthService {
             'teamId': teamId,
             'teamName': teamName,
             'isRegistered': true,
+            'mealQRCode': memberMealQRCode,
+            'meals': memberMealTracking,
           });
           developer.log('Member details stored successfully');
         } catch (e) {
@@ -551,5 +607,193 @@ class AuthService {
       developer.log('Error getting current team: $e');
       return null;
     }
+  }
+  
+  // Verify meal QR code
+  Future<Map<String, dynamic>> verifyMealQRCode(String qrCode, String mealType) async {
+    try {
+      developer.log('Verifying meal QR code: $qrCode for meal: $mealType');
+      
+      // Validate meal type
+      if (!['breakfast', 'lunch', 'dinner'].contains(mealType)) {
+        return {
+          'success': false,
+          'message': 'Invalid meal type. Must be breakfast, lunch, or dinner.',
+        };
+      }
+      
+      // Query members collection for the matching QR code
+      final memberQuery = await _firestore
+          .collection('members')
+          .where('mealQRCode', isEqualTo: qrCode)
+          .limit(1)
+          .get();
+      
+      if (memberQuery.docs.isEmpty) {
+        return {
+          'success': false,
+          'message': 'Invalid QR code. Member not found.',
+        };
+      }
+      
+      // Get member data
+      final memberDoc = memberQuery.docs.first;
+      final memberData = memberDoc.data();
+      final memberName = memberData['name'] ?? 'Unknown Member';
+      final teamName = memberData['teamName'] ?? 'Unknown Team';
+      
+      // Check if member has meal tracking data
+      if (!memberData.containsKey('meals') || memberData['meals'] == null) {
+        // Initialize meal tracking if it doesn't exist
+        await memberDoc.reference.update({
+          'meals': _initializeMealTracking(),
+        });
+        
+        return {
+          'success': false,
+          'message': 'Meal tracking data was missing. Please try again.',
+        };
+      }
+      
+      // Get meal tracking data
+      final meals = memberData['meals'] as Map<String, dynamic>;
+      
+      // Check if meal data exists for the specified meal type
+      if (!meals.containsKey(mealType)) {
+        return {
+          'success': false,
+          'message': 'Meal data not found for $mealType.',
+        };
+      }
+      
+      final mealData = meals[mealType] as Map<String, dynamic>;
+      
+      // Check if meal has already been served
+      final bool alreadyServed = mealData['served'] ?? false;
+      
+      // Get current time
+      final now = DateTime.now();
+      
+      // Check if current time is within allowed meal time
+      final allowedStartTime = (mealData['allowedStartTime'] as Timestamp).toDate();
+      final allowedEndTime = (mealData['allowedEndTime'] as Timestamp).toDate();
+      
+      // Add a temporary override for testing - always allow breakfast during development
+      bool isWithinMealTime = now.isAfter(allowedStartTime) && now.isBefore(allowedEndTime);
+      
+      // TESTING OVERRIDE: Always allow breakfast meal regardless of time for testing
+      if (mealType == 'breakfast') {
+        isWithinMealTime = true;
+        developer.log('TESTING: Overriding meal time restrictions for breakfast');
+      }
+      
+      if (!isWithinMealTime) {
+        return {
+          'success': false,
+          'message': '$mealType is not being served at this time.',
+          'memberName': memberName,
+          'teamName': teamName,
+          'alreadyServed': alreadyServed,
+        };
+      }
+      
+      // If already served, return success but indicate it's a duplicate
+      if (alreadyServed) {
+        final servedAt = (mealData['servedAt'] as Timestamp).toDate();
+        return {
+          'success': true,
+          'message': '$memberName has already been served $mealType at ${_formatTime(servedAt)}.',
+          'memberName': memberName,
+          'teamName': teamName,
+          'alreadyServed': true,
+          'servedAt': servedAt,
+        };
+      }
+      
+      // Update the meal status
+      final updatedMeals = Map<String, dynamic>.from(meals);
+      final updatedMealData = Map<String, dynamic>.from(updatedMeals[mealType] as Map<String, dynamic>);
+      
+      updatedMealData['served'] = true;
+      updatedMealData['servedAt'] = FieldValue.serverTimestamp();
+      
+      updatedMeals[mealType] = updatedMealData;
+      
+      // Update the document
+      await memberDoc.reference.update({
+        'meals': updatedMeals,
+      });
+      
+      return {
+        'success': true,
+        'message': '$mealType served to $memberName successfully.',
+        'memberName': memberName,
+        'teamName': teamName,
+        'alreadyServed': false,
+      };
+    } catch (e) {
+      developer.log('Error verifying meal QR code: $e');
+      return {
+        'success': false,
+        'message': 'An error occurred: $e',
+      };
+    }
+  }
+  
+  // Get member meal status
+  Future<Map<String, dynamic>> getMemberMealStatus(String email) async {
+    try {
+      developer.log('Getting meal status for member: $email');
+      
+      // Get member document
+      final memberDoc = await _firestore.collection('members').doc(email).get();
+      
+      if (!memberDoc.exists) {
+        return {
+          'success': false,
+          'message': 'Member not found',
+        };
+      }
+      
+      final memberData = memberDoc.data() as Map<String, dynamic>;
+      
+      // Check if member has meal tracking data
+      if (!memberData.containsKey('meals') || memberData['meals'] == null) {
+        // Initialize meal tracking if it doesn't exist
+        final mealTracking = _initializeMealTracking();
+        await memberDoc.reference.update({
+          'meals': mealTracking,
+        });
+        
+        return {
+          'success': true,
+          'mealQRCode': memberData['mealQRCode'] ?? '',
+          'meals': mealTracking,
+          'name': memberData['name'] ?? 'Unknown',
+        };
+      }
+      
+      // Return meal status
+      return {
+        'success': true,
+        'mealQRCode': memberData['mealQRCode'] ?? '',
+        'meals': memberData['meals'],
+        'name': memberData['name'] ?? 'Unknown',
+      };
+    } catch (e) {
+      developer.log('Error getting member meal status: $e');
+      return {
+        'success': false,
+        'message': 'An error occurred: $e',
+      };
+    }
+  }
+  
+  // Format time for display
+  String _formatTime(DateTime dateTime) {
+    final hour = dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour;
+    final period = dateTime.hour >= 12 ? 'PM' : 'AM';
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    return '$hour:$minute $period';
   }
 }
