@@ -7,14 +7,7 @@ import '../services/auth_service.dart';
 import 'qr_verification_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  final bool isLeader;
-  final bool isMember;
-
-  const LoginScreen({
-    super.key, 
-    this.isLeader = false,
-    this.isMember = true, // Default to member login if not specified
-  });
+  const LoginScreen({super.key});
 
   @override
   _LoginScreenState createState() => _LoginScreenState();
@@ -45,7 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final username = _usernameController.text.trim();
       final password = _passwordController.text.trim();
 
-      print('Attempting login with: Username: $username, IsLeader: ${widget.isLeader}, IsMember: ${widget.isMember}');
+      print('Attempting login with: Username: $username');
       
       final result = await _authService.loginTeam(
         username: username,
@@ -64,24 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (result['success']) {
         // Get user role from result
         String userRole = result['userRole'] ?? '';
-        print('Processing successful login with role: $userRole on screen type - isLeader: ${widget.isLeader}, isMember: ${widget.isMember}');
-        
-        // Check if login page type matches the user role
-        bool isCorrectPage = (widget.isLeader && userRole == 'leader') || 
-                             (widget.isMember && userRole == 'member');
-        
-        if (!isCorrectPage) {
-          setState(() {
-            if (userRole == 'leader' && !widget.isLeader) {
-              _errorMessage = 'These credentials are for a team leader. Please use the leader login page.';
-            } else if (userRole == 'member' && !widget.isMember) {
-              _errorMessage = 'These credentials are for a team member. Please use the member login page.';
-            } else {
-              _errorMessage = 'Invalid login credentials for this page.';
-            }
-          });
-          return;
-        }
+        print('Processing successful login with role: $userRole');
         
         // Success message
         ScaffoldMessenger.of(context).showSnackBar(
@@ -133,35 +109,11 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  String _getTitle() {
-    if (widget.isLeader) {
-      return 'Team Leader Login';
-    } else {
-      return 'Team Member Login';
-    }
-  }
-
-  String _getWelcomeMessage() {
-    if (widget.isLeader) {
-      return 'Welcome back, Team Leader!';
-    } else {
-      return 'Welcome, Team Member!';
-    }
-  }
-
-  String _getSubtitle() {
-    if (widget.isLeader) {
-      return 'Login to manage your team and hackathon project';
-    } else {
-      return 'Login to access your team\'s hackathon project';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: CustomAppBar(
-        title: _getTitle(),
+        title: 'Team Login',
       ),
       body: Stack(
         children: [
@@ -227,13 +179,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     SizedBox(height: MediaQuery.of(context).size.height * 0.05),
                     Icon(
-                      widget.isLeader ? Icons.person : Icons.person_outline,
+                      Icons.login_rounded,
                       color: AppTheme.primaryColor,
                       size: 80,
                     ),
                     const SizedBox(height: 24),
                     Text(
-                      _getWelcomeMessage(),
+                      'Welcome to Spectrum Hackathon!',
                       style: TextStyle(
                         color: AppTheme.textPrimaryColor,
                         fontSize: 24,
@@ -243,7 +195,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      _getSubtitle(),
+                      'Login with your team credentials',
                       style: TextStyle(
                         color: AppTheme.textSecondaryColor,
                         fontSize: 16,
@@ -255,9 +207,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     // Username field
                     CustomTextField(
                       label: 'Username',
-                      hint: widget.isLeader 
-                          ? 'Enter leader username' 
-                          : 'Enter member username',
+                      hint: 'Enter your username',
                       controller: _usernameController,
                       prefixIcon: Icon(
                         Icons.alternate_email,
@@ -324,42 +274,40 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 20),
                     
                     // Additional info
-                    if (widget.isLeader) ...[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            "Don't have a team yet?",
-                            style: TextStyle(
-                              color: AppTheme.textSecondaryColor,
-                            ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          "Don't have a team yet?",
+                          style: TextStyle(
+                            color: AppTheme.textSecondaryColor,
                           ),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              // Navigate to signup
-                              // This is handled in the welcome screen
-                            },
-                            child: Text(
-                              'Register Now',
-                              style: TextStyle(
-                                color: AppTheme.accentColor,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ] else ...[
-                      Text(
-                        'Make sure to use the credentials provided to you',
-                        style: TextStyle(
-                          color: AppTheme.textSecondaryColor,
-                          fontSize: 14,
                         ),
-                        textAlign: TextAlign.center,
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            // Navigate to signup
+                            // This is handled in the welcome screen
+                          },
+                          child: Text(
+                            'Register Now',
+                            style: TextStyle(
+                              color: AppTheme.accentColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Login system will automatically detect if you are a team leader or member',
+                      style: TextStyle(
+                        color: AppTheme.textSecondaryColor,
+                        fontSize: 14,
                       ),
-                    ],
+                      textAlign: TextAlign.center,
+                    ),
                   ],
                 ),
               ),
