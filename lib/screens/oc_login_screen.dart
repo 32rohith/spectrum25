@@ -31,6 +31,29 @@ class _OCLoginScreenState extends State<OCLoginScreen> {
   final _lockoutDuration = const Duration(minutes: 15);
 
   @override
+  void initState() {
+    super.initState();
+    _loadOCMembersData();
+  }
+  
+  Future<void> _loadOCMembersData() async {
+    try {
+      // Load the CSV file from assets
+      final String csvData = await rootBundle.loadString('assets/octest.csv');
+      
+      // Parse the CSV data
+      _ocMembersData = const CsvToListConverter().convert(csvData);
+      
+      print('Loaded ${_ocMembersData.length} OC members records');
+    } catch (e) {
+      print('Error loading OC members data: $e');
+      setState(() {
+        _errorMessage = 'Error loading OC members data. Please try again.';
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
@@ -122,15 +145,35 @@ class _OCLoginScreenState extends State<OCLoginScreen> {
         
         setState(() {
           _isLoading = false;
+        });
+        
+        if (isVerified) {
+          // Reset login attempts on successful login
+          setState(() {
+            _loginAttempts = 0;
+            _errorMessage = null;
+          });
+          
+          // Navigate to OC main screen
+          Navigator.pushReplacement(
+            context, 
+            MaterialPageRoute(
+              builder: (context) => const OCMainScreen(),
+            ),
+          );
           
           // Show success message
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('OC verification would happen here'),
+              content: Text('Login successful'),
               backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
             ),
           );
-        });
+        } else {
+          // Handle failed login attempt
+          _handleFailedAttempt();
+        }
       });
     }
   }
