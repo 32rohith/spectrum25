@@ -626,7 +626,6 @@ class MealService {
       final consumptionsSnapshot = await _firestore
           .collection('mealConsumptions')
           .where('mealId', isEqualTo: mealId)
-          .where('isConsumed', isEqualTo: true)
           .get();
       
       final consumptions = consumptionsSnapshot.docs.map((doc) {
@@ -639,8 +638,14 @@ class MealService {
       final Map<String, List<MealConsumption>> consumptionsByTeam = {};
       
       for (var consumption in consumptions) {
-        uniqueTeams.add(consumption.teamId);
-        uniqueMembers.add(consumption.memberId);
+        // Only add if it has a valid teamId and memberId
+        if (consumption.teamId.isNotEmpty) {
+          uniqueTeams.add(consumption.teamId);
+        }
+        
+        if (consumption.memberId.isNotEmpty) {
+          uniqueMembers.add(consumption.memberId);
+        }
         
         // Group by team
         if (!consumptionsByTeam.containsKey(consumption.teamName)) {

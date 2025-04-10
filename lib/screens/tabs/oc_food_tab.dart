@@ -263,9 +263,15 @@ class _OCFoodTabState extends State<OCFoodTab> {
         _isScanning = false;
       });
       
-      // If successful or already consumed, refresh the recent consumptions
+      // If successful or already consumed, refresh the recent consumptions and statistics
       if (result['success'] == true || result['isSecondAttempt'] == true) {
         _loadRecentConsumptions(_selectedMeal!.id);
+        
+        // Force refresh the statistics by triggering a state update
+        setState(() {
+          // This empty setState will force a rebuild of the widget tree,
+          // causing _buildMealStatistics to refresh with new data
+        });
       }
       
       // Stop scanner
