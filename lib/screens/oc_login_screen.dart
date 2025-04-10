@@ -15,15 +15,15 @@ class OCLoginScreen extends StatefulWidget {
 }
 
 class _OCLoginScreenState extends State<OCLoginScreen> {
-  final _idController = TextEditingController();
-  final _passwordController = TextEditingController();
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
   String? _errorMessage;
   bool _showPassword = false;
   
-  // OC login credentials
-  List<List<dynamic>> _ocCredentials = [];
+  // OC member data & login security
+  List<List<dynamic>> _ocMembersData = [];
   int _loginAttempts = 0;
   int _maxLoginAttempts = 5;
   bool _lockoutActive = false;
@@ -33,49 +33,53 @@ class _OCLoginScreenState extends State<OCLoginScreen> {
   @override
   void initState() {
     super.initState();
-    _loadOCCredentials();
+    _loadOCMembersData();
   }
   
-  Future<void> _loadOCCredentials() async {
+  Future<void> _loadOCMembersData() async {
     try {
       // Load the CSV file from assets
       final String csvData = await rootBundle.loadString('assets/octest.csv');
       
       // Parse the CSV data
-      _ocCredentials = const CsvToListConverter().convert(csvData);
+      _ocMembersData = const CsvToListConverter().convert(csvData);
       
-      print('Loaded OC credentials');
+      print('Loaded ${_ocMembersData.length} OC members records');
     } catch (e) {
-      print('Error loading OC credentials: $e');
+      print('Error loading OC members data: $e');
       setState(() {
-        _errorMessage = 'Error loading OC credentials. Please try again.';
+        _errorMessage = 'Error loading OC members data. Please try again.';
       });
     }
   }
 
   @override
   void dispose() {
-    _idController.dispose();
-    _passwordController.dispose();
+    _nameController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
-  // Verify if credentials match the fixed values
-  bool _verifyOCCredentials(String id, String password) {
-    if (_ocCredentials.isEmpty) {
+  // Verify if user exists in OC members data
+  bool _verifyOCMember(String name, String phone) {
+    if (_ocMembersData.isEmpty) {
       setState(() {
-        _errorMessage = 'OC credentials not loaded. Please try again.';
+        _errorMessage = 'OC members data not loaded. Please try again.';
       });
       return false;
     }
     
-    // Check if credentials match the fixed values in the CSV
-    for (var credential in _ocCredentials) {
-      if (credential.length >= 2) {
-        final validId = credential[0].toString().trim();
-        final validPassword = credential[1].toString().trim();
+    // Normalize inputs for comparison (trim whitespace, convert to lowercase)
+    final normalizedName = name.trim().toLowerCase();
+    final normalizedPhone = phone.trim();
+    
+    // Check if user exists in OC members data
+    for (var member in _ocMembersData) {
+      if (member.length >= 2) {
+        final memberName = member[0].toString().trim().toLowerCase();
+        final memberPhone = member[1].toString().trim();
         
-        if (id == validId && password == validPassword) {
+        if (memberName == normalizedName && memberPhone == normalizedPhone) {
           return true;
         }
       }
@@ -111,7 +115,7 @@ class _OCLoginScreenState extends State<OCLoginScreen> {
         _lockoutEndTime = DateTime.now().add(_lockoutDuration);
         _errorMessage = 'Too many failed attempts. Please try again after ${_lockoutDuration.inMinutes} minutes.';
       } else {
-        _errorMessage = 'Verification failed. Invalid ID or password. '
+        _errorMessage = 'Verification failed. Invalid name or phone number. '
             '${_maxLoginAttempts - _loginAttempts} attempts remaining.';
       }
     });
@@ -134,10 +138,10 @@ class _OCLoginScreenState extends State<OCLoginScreen> {
       });
 
       Future.delayed(const Duration(milliseconds: 800), () {
-        final id = _idController.text;
-        final password = _passwordController.text;
+        final name = _nameController.text;
+        final phone = _phoneController.text;
         
-        final isVerified = _verifyOCCredentials(id, password);
+        final isVerified = _verifyOCMember(name, phone);
         
         setState(() {
           _isLoading = false;
@@ -285,18 +289,18 @@ class _OCLoginScreenState extends State<OCLoginScreen> {
                     
                     const SizedBox(height: 40),
                     
-                    // ID Field
+                    // Name Field
                     CustomTextField(
-                      label: 'ID',
-                      hint: 'Enter your OC ID',
-                      controller: _idController,
+                      label: 'Full Name',
+                      hint: 'Enter your full name',
+                      controller: _nameController,
                       prefixIcon: Icon(
-                        Icons.badge_outlined,
+                        Icons.person_outline,
                         color: AppTheme.textSecondaryColor,
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return 'Please enter your ID';
+                          return 'Please enter your name';
                         }
                         return null;
                       },
@@ -304,11 +308,12 @@ class _OCLoginScreenState extends State<OCLoginScreen> {
                     
                     const SizedBox(height: 20),
                     
-                    // Password Field
+                    // Password Field (Phone Number)
                     CustomTextField(
                       label: 'Password',
-                      hint: 'Enter your password',
-                      controller: _passwordController,
+                      hint: 'Enter your password (phone number)',
+                      controller: _phoneController,
+                      keyboardType: TextInputType.phone,
                       obscureText: !_showPassword,
                       prefixIcon: Icon(
                         Icons.lock_outline,
@@ -328,6 +333,18 @@ class _OCLoginScreenState extends State<OCLoginScreen> {
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Please enter your password';
+                        }
+                        // Ensure only numbers are entered
+                        if (!RegExp(r'^[0-9]+$').hasMatch(value)) {
+                          return 'Password must contain only numbers';
+                        }
+                        
+                        // Remove all non-numeric characters for validation
+                        final cleanPhone = value.replaceAll(RegExp(r'\D'), '');
+                        
+                        // Basic phone number validation - can be customized for your country format
+                        if (cleanPhone.length < 8 || cleanPhone.length > 15) {
+                          return 'Please enter a valid phone number';
                         }
                         return null;
                       },
