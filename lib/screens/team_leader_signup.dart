@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import 'team_member_details.dart';
@@ -121,45 +122,206 @@ class _TeamLeaderSignupScreenState extends State<TeamLeaderSignupScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const CustomAppBar(title: 'Create Team'),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppTheme.primaryDarkColor.withOpacity(0.8),
-              AppTheme.backgroundColor,
-              AppTheme.primaryDarkColor.withOpacity(0.6),
-            ],
+      body: Stack(
+        children: [
+          // Black Background
+          Container(
+            color: AppTheme.backgroundColor,
           ),
-        ),
-        child: SafeArea(
-          child: _isLoading 
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (!_isCSVLoaded) 
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppTheme.accentColor,
+          
+          // Blue Blurred Circle - Top Left
+          Positioned(
+            top: -100,
+            left: -100,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.primaryColor.withOpacity(0.3),
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.transparent,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          
+          // Blue Blurred Circle - Bottom Right
+          Positioned(
+            bottom: -100,
+            right: -100,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.accentColor.withOpacity(0.3),
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.transparent,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          
+          // Main Content
+          SafeArea(
+            child: _isLoading 
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (!_isCSVLoaded) 
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppTheme.accentColor,
+                              ),
                             ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Loading team data...',
+                              style: TextStyle(
+                                color: AppTheme.textSecondaryColor,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    SizedBox(height: MediaQuery.of(context).size.height * 0.05),
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.group_add,
+                        color: AppTheme.primaryColor,
+                        size: 60,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      'Let\'s Start Your Hackathon Journey!',
+                      style: TextStyle(
+                        color: AppTheme.textPrimaryColor,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Enter your registered team name',
+                      style: TextStyle(
+                        color: AppTheme.textSecondaryColor,
+                        fontSize: 16,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 40),
+                    
+                    // Team name field
+                    CustomTextField(
+                      label: 'Team Name',
+                      hint: 'Enter your team name',
+                      controller: _teamNameController,
+                      prefixIcon: Icon(
+                        Icons.groups,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a team name';
+                        } else if (value.length < 3) {
+                          return 'Team name must be at least 3 characters';
+                        } else if (value.length > 20) {
+                          return 'Team name must be less than 20 characters';
+                        }
+                        return null;
+                      },
+                    ),
+                    if (_errorMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16.0),
+                        child: Text(
+                          _errorMessage!,
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 14,
                           ),
-                          const SizedBox(width: 8),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    const SizedBox(height: 40),
+                    
+                    // Next button
+                    GlassButton(
+                      text: 'Check & Proceed',
+                      onPressed: _proceedToMemberDetails,
+                      isLoading: _isLoading,
+                      icon: Icons.arrow_forward,
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    
+                    // Info text
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardColor.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.glassBorderColor),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: AppTheme.accentColor,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Team Authentication:',
+                                  style: TextStyle(
+                                    color: AppTheme.accentColor,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
                           Text(
-                            'Loading team data...',
+                            'Please enter your pre-registered team name exactly as provided. Only registered teams can proceed to the next step.',
                             style: TextStyle(
                               color: AppTheme.textSecondaryColor,
                               fontSize: 14,
@@ -168,130 +330,12 @@ class _TeamLeaderSignupScreenState extends State<TeamLeaderSignupScreen> {
                         ],
                       ),
                     ),
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.05),
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.group_add,
-                      color: AppTheme.primaryColor,
-                      size: 60,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Let\'s Start Your Hackathon Journey!',
-                    style: TextStyle(
-                      color: AppTheme.textPrimaryColor,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Enter your registered team name',
-                    style: TextStyle(
-                      color: AppTheme.textSecondaryColor,
-                      fontSize: 16,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 40),
-                  
-                  // Team name field
-                  CustomTextField(
-                    label: 'Team Name',
-                    hint: 'Enter your team name',
-                    controller: _teamNameController,
-                    prefixIcon: Icon(
-                      Icons.groups,
-                      color: AppTheme.textSecondaryColor,
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter a team name';
-                      } else if (value.length < 3) {
-                        return 'Team name must be at least 3 characters';
-                      } else if (value.length > 20) {
-                        return 'Team name must be less than 20 characters';
-                      }
-                      return null;
-                    },
-                  ),
-                  if (_errorMessage != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16.0),
-                      child: Text(
-                        _errorMessage!,
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontSize: 14,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  const SizedBox(height: 40),
-                  
-                  // Next button
-                  GlassButton(
-                    text: 'Check & Proceed',
-                    onPressed: _proceedToMemberDetails,
-                    isLoading: _isLoading,
-                    icon: Icons.arrow_forward,
-                  ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // Info text
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.cardColor.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.glassBorderColor),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.info_outline,
-                              color: AppTheme.accentColor,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Team Authentication:',
-                                style: TextStyle(
-                                  color: AppTheme.accentColor,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Please enter your pre-registered team name exactly as provided. Only registered teams can proceed to the next step.',
-                          style: TextStyle(
-                            color: AppTheme.textSecondaryColor,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

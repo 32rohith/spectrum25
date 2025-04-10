@@ -2,29 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  // Primary Colors
-  static const Color primaryColor = Color(0xFF6A0080);
-  static const Color primaryLightColor = Color(0xFF9C27B0);
-  static const Color primaryDarkColor = Color(0xFF4A005A);
+  // Primary Colors - Changed to blue theme
+  static const Color primaryColor = Color(0xFF2962FF);
+  static const Color primaryLightColor = Color(0xFF768FFF);
+  static const Color primaryDarkColor = Color(0xFF0039CB);
   
   // Secondary Colors
-  static const Color accentColor = Color(0xFF03DAC6);
-  static const Color accentLightColor = Color(0xFF66FFF9);
-  static const Color accentDarkColor = Color(0xFF00A896);
+  static const Color accentColor = Color(0xFF00B0FF);
+  static const Color accentLightColor = Color(0xFF69E2FF);
+  static const Color accentDarkColor = Color(0xFF0081CB);
   
-  // Background Colors - Using very dark purples instead of black/gray
-  static const Color backgroundColor = Color(0xFF3A004A);
-  static const Color surfaceColor = Color(0xFF4A005A);
-  static const Color cardColor = Color(0xFF5A106A);
+  // Background Colors - Changed to black
+  static const Color backgroundColor = Color(0xFF000000);
+  static const Color surfaceColor = Color(0xFF121212);
+  static const Color cardColor = Color(0xFF1E1E1E);
 
   // Text Colors
   static const Color textPrimaryColor = Color(0xFFFFFFFF);
   static const Color textSecondaryColor = Color(0xB3FFFFFF); // White with 70% opacity
   static const Color textDisabledColor = Color(0x61FFFFFF); // White with 38% opacity
 
-  // Glass effect colors
-  static const Color glassColor = Color(0x4D6A0080);
-  static const Color glassBorderColor = Color(0x336A0080);
+  // Glass effect colors - Changed to blue
+  static const Color glassColor = Color(0x4D2962FF);
+  static const Color glassBorderColor = Color(0x332962FF);
 
   // Error
   static const Color errorColor = Color(0xFFCF6679);

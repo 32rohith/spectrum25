@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:ui';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../services/auth_service.dart';
@@ -162,166 +163,209 @@ class _LoginScreenState extends State<LoginScreen> {
       appBar: CustomAppBar(
         title: _getTitle(),
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppTheme.primaryDarkColor.withOpacity(0.8),
-              AppTheme.backgroundColor,
-              AppTheme.primaryDarkColor.withOpacity(0.6),
-            ],
+      body: Stack(
+        children: [
+          // Black Background
+          Container(
+            color: AppTheme.backgroundColor,
           ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.05),
-                  Icon(
-                    widget.isLeader ? Icons.person : Icons.person_outline,
-                    color: AppTheme.primaryColor,
-                    size: 80,
+          
+          // Blue Blurred Circle - Top Left
+          Positioned(
+            top: -100,
+            left: -100,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.primaryColor.withOpacity(0.3),
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.transparent,
                   ),
-                  const SizedBox(height: 24),
-                  Text(
-                    _getWelcomeMessage(),
-                    style: TextStyle(
-                      color: AppTheme.textPrimaryColor,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          
+          // Blue Blurred Circle - Bottom Right
+          Positioned(
+            bottom: -100,
+            right: -100,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.accentColor.withOpacity(0.3),
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.transparent,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          
+          // Main Content
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(height: MediaQuery.of(context).size.height * 0.05),
+                    Icon(
+                      widget.isLeader ? Icons.person : Icons.person_outline,
+                      color: AppTheme.primaryColor,
+                      size: 80,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _getSubtitle(),
-                    style: TextStyle(
-                      color: AppTheme.textSecondaryColor,
-                      fontSize: 16,
+                    const SizedBox(height: 24),
+                    Text(
+                      _getWelcomeMessage(),
+                      style: TextStyle(
+                        color: AppTheme.textPrimaryColor,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 40),
-                  
-                  // Username field
-                  CustomTextField(
-                    label: 'Username',
-                    hint: widget.isLeader 
-                        ? 'Enter leader username' 
-                        : 'Enter member username',
-                    controller: _usernameController,
-                    prefixIcon: Icon(
-                      Icons.alternate_email,
-                      color: AppTheme.textSecondaryColor,
+                    const SizedBox(height: 8),
+                    Text(
+                      _getSubtitle(),
+                      style: TextStyle(
+                        color: AppTheme.textSecondaryColor,
+                        fontSize: 16,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your username';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  
-                  // Password field
-                  CustomTextField(
-                    label: 'Password',
-                    hint: 'Enter password',
-                    controller: _passwordController,
-                    obscureText: true,
-                    prefixIcon: Icon(
-                      Icons.lock_outline,
-                      color: AppTheme.textSecondaryColor,
+                    const SizedBox(height: 40),
+                    
+                    // Username field
+                    CustomTextField(
+                      label: 'Username',
+                      hint: widget.isLeader 
+                          ? 'Enter leader username' 
+                          : 'Enter member username',
+                      controller: _usernameController,
+                      prefixIcon: Icon(
+                        Icons.alternate_email,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter your username';
+                        }
+                        return null;
+                      },
                     ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your password';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 40),
-                  
-                  // Login button
-                  GlassButton(
-                    text: 'Login',
-                    onPressed: _login,
-                    isLoading: _isLoading,
-                    icon: Icons.login,
-                  ),
-                  
-                  if (_errorMessage != null) ...[
                     const SizedBox(height: 20),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppTheme.errorColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: AppTheme.errorColor.withOpacity(0.5),
+                    
+                    // Password field
+                    CustomTextField(
+                      label: 'Password',
+                      hint: 'Enter password',
+                      controller: _passwordController,
+                      obscureText: true,
+                      prefixIcon: Icon(
+                        Icons.lock_outline,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter your password';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 40),
+                    
+                    // Login button
+                    GlassButton(
+                      text: 'Login',
+                      onPressed: _login,
+                      isLoading: _isLoading,
+                      icon: Icons.login,
+                    ),
+                    
+                    if (_errorMessage != null) ...[
+                      const SizedBox(height: 20),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.errorColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppTheme.errorColor.withOpacity(0.5),
+                          ),
+                        ),
+                        child: Text(
+                          _errorMessage!,
+                          style: TextStyle(
+                            color: AppTheme.errorColor,
+                            fontSize: 14,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
                       ),
-                      child: Text(
-                        _errorMessage!,
+                    ],
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Additional info
+                    if (widget.isLeader) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            "Don't have a team yet?",
+                            style: TextStyle(
+                              color: AppTheme.textSecondaryColor,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              // Navigate to signup
+                              // This is handled in the welcome screen
+                            },
+                            child: Text(
+                              'Register Now',
+                              style: TextStyle(
+                                color: AppTheme.accentColor,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      Text(
+                        'Make sure to use the credentials provided to you',
                         style: TextStyle(
-                          color: AppTheme.errorColor,
+                          color: AppTheme.textSecondaryColor,
                           fontSize: 14,
                         ),
                         textAlign: TextAlign.center,
                       ),
-                    ),
+                    ],
                   ],
-                  
-                  const SizedBox(height: 20),
-                  
-                  // Additional info
-                  if (widget.isLeader) ...[
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "Don't have a team yet?",
-                          style: TextStyle(
-                            color: AppTheme.textSecondaryColor,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            // Navigate to signup
-                            // This is handled in the welcome screen
-                          },
-                          child: Text(
-                            'Register Now',
-                            style: TextStyle(
-                              color: AppTheme.accentColor,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ] else ...[
-                    Text(
-                      'Make sure to use the credentials provided to you',
-                      style: TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontSize: 14,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ],
+                ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

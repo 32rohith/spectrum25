@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import '../models/team.dart';
 import '../theme/app_theme.dart';
 import '../utils/glass_morphism.dart';
@@ -39,21 +40,64 @@ class _MainAppScreenState extends State<MainAppScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppTheme.primaryDarkColor.withOpacity(0.8),
-              AppTheme.backgroundColor,
-              AppTheme.primaryDarkColor.withOpacity(0.6),
-            ],
+      body: Stack(
+        children: [
+          // Black Background
+          Container(
+            color: AppTheme.backgroundColor,
           ),
-        ),
-        child: SafeArea(
-          child: _tabs[_currentIndex],
-        ),
+          
+          // Blue Blurred Circle - Top Left
+          Positioned(
+            top: -100,
+            left: -100,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.primaryColor.withOpacity(0.3),
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.transparent,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          
+          // Blue Blurred Circle - Bottom Right
+          Positioned(
+            bottom: -100,
+            right: -100,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.accentColor.withOpacity(0.3),
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.transparent,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          
+          // Main Content
+          SafeArea(
+            child: _tabs[_currentIndex],
+          ),
+        ],
       ),
       bottomNavigationBar: GlassMorphism(
         borderRadius: const BorderRadius.only(

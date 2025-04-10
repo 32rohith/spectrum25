@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import '../models/team.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
@@ -142,213 +143,256 @@ class _TeamMemberDetailsScreenState extends State<TeamMemberDetailsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const CustomAppBar(title: 'Team Details'),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppTheme.primaryDarkColor.withOpacity(0.8),
-              AppTheme.backgroundColor,
-              AppTheme.primaryDarkColor.withOpacity(0.6),
-            ],
+      body: Stack(
+        children: [
+          // Black Background
+          Container(
+            color: AppTheme.backgroundColor,
           ),
-        ),
-        child: SafeArea(
-          child: Form(
-            key: _formKey,
-            child: ListView(
-              padding: const EdgeInsets.all(24.0),
-              children: [
-                Text(
-                  'Team "${widget.teamName}"',
-                  style: TextStyle(
-                    color: AppTheme.primaryColor,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Enter details for all team members',
-                  style: TextStyle(
-                    color: AppTheme.textSecondaryColor,
-                    fontSize: 16,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                
-                // Team Leader Section
-                GlassCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.star,
-                            color: AppTheme.accentColor,
-                            size: 24,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Team Leader',
-                            style: TextStyle(
-                              color: AppTheme.accentColor,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // Leader Name
-                      CustomTextField(
-                        label: 'Full Name',
-                        hint: 'Enter your full name',
-                        controller: _leaderNameController,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter your name';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // Leader Email
-                      CustomTextField(
-                        label: 'Email',
-                        hint: 'Enter your email address',
-                        controller: _leaderEmailController,
-                        keyboardType: TextInputType.emailAddress,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter your email';
-                          } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                            return 'Please enter a valid email';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // Leader Phone
-                      CustomTextField(
-                        label: 'Phone Number',
-                        hint: 'Enter your phone number',
-                        controller: _leaderPhoneController,
-                        keyboardType: TextInputType.phone,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter your phone number';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      // Leader Device
-                      CustomTextField(
-                        label: 'Device',
-                        hint: 'Enter your device (e.g., Laptop, Mobile)',
-                        controller: _leaderDeviceController,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter your device';
-                          }
-                          return null;
-                        },
-                      ),
-                    ],
+          
+          // Blue Blurred Circle - Top Left
+          Positioned(
+            top: -100,
+            left: -100,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.primaryColor.withOpacity(0.3),
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.transparent,
                   ),
                 ),
-                
-                const SizedBox(height: 24),
-                
-                // Team Members Section
-                Text(
-                  'Team Members (${_memberForms.length})',
-                  style: TextStyle(
-                    color: AppTheme.textPrimaryColor,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                
-                // Member Forms
-                ...List.generate(_memberForms.length, (index) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 16.0),
-                    child: _memberForms[index],
-                  );
-                }),
-                
-                // Add Member Button (if less than max members)
-                if (_memberForms.length < _maxMembers)
-                  TextButton.icon(
-                    onPressed: _addMemberForm,
-                    icon: Icon(
-                      Icons.add_circle,
-                      color: AppTheme.accentColor,
-                    ),
-                    label: Text(
-                      'Add Team Member',
-                      style: TextStyle(
-                        color: AppTheme.accentColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    style: TextButton.styleFrom(
-                      backgroundColor: AppTheme.accentColor.withOpacity(0.1),
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                
-                const SizedBox(height: 24),
-                
-                // Error Message
-                if (_errorMessage != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.errorColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: AppTheme.errorColor.withOpacity(0.5),
-                      ),
-                    ),
-                    child: Text(
-                      _errorMessage!,
-                      style: TextStyle(
-                        color: AppTheme.errorColor,
-                        fontSize: 14,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-                
-                // Register Button
-                GlassButton(
-                  text: 'Register Team',
-                  onPressed: _registerTeam,
-                  isLoading: _isLoading,
-                  icon: Icons.how_to_reg,
-                ),
-                const SizedBox(height: 40),
-              ],
+              ),
             ),
           ),
-        ),
+          
+          // Blue Blurred Circle - Bottom Right
+          Positioned(
+            bottom: -100,
+            right: -100,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.accentColor.withOpacity(0.3),
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.transparent,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          
+          // Main Content
+          SafeArea(
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.all(24.0),
+                children: [
+                  Text(
+                    'Team "${widget.teamName}"',
+                    style: TextStyle(
+                      color: AppTheme.primaryColor,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Enter details for all team members',
+                    style: TextStyle(
+                      color: AppTheme.textSecondaryColor,
+                      fontSize: 16,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Team Leader Section
+                  GlassCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.star,
+                              color: AppTheme.accentColor,
+                              size: 24,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Team Leader',
+                              style: TextStyle(
+                                color: AppTheme.accentColor,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Leader Name
+                        CustomTextField(
+                          label: 'Full Name',
+                          hint: 'Enter your full name',
+                          controller: _leaderNameController,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your name';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Leader Email
+                        CustomTextField(
+                          label: 'Email',
+                          hint: 'Enter your email address',
+                          controller: _leaderEmailController,
+                          keyboardType: TextInputType.emailAddress,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your email';
+                            } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                              return 'Please enter a valid email';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Leader Phone
+                        CustomTextField(
+                          label: 'Phone Number',
+                          hint: 'Enter your phone number',
+                          controller: _leaderPhoneController,
+                          keyboardType: TextInputType.phone,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your phone number';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        
+                        // Leader Device
+                        CustomTextField(
+                          label: 'Device',
+                          hint: 'Enter your device (e.g., Laptop, Mobile)',
+                          controller: _leaderDeviceController,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your device';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Team Members Section
+                  Text(
+                    'Team Members (${_memberForms.length})',
+                    style: TextStyle(
+                      color: AppTheme.textPrimaryColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  // Member Forms
+                  ...List.generate(_memberForms.length, (index) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16.0),
+                      child: _memberForms[index],
+                    );
+                  }),
+                  
+                  // Add Member Button (if less than max members)
+                  if (_memberForms.length < _maxMembers)
+                    TextButton.icon(
+                      onPressed: _addMemberForm,
+                      icon: Icon(
+                        Icons.add_circle,
+                        color: AppTheme.accentColor,
+                      ),
+                      label: Text(
+                        'Add Team Member',
+                        style: TextStyle(
+                          color: AppTheme.accentColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        backgroundColor: AppTheme.accentColor.withOpacity(0.1),
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Error Message
+                  if (_errorMessage != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.errorColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: AppTheme.errorColor.withOpacity(0.5),
+                        ),
+                      ),
+                      child: Text(
+                        _errorMessage!,
+                        style: TextStyle(
+                          color: AppTheme.errorColor,
+                          fontSize: 14,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                  
+                  // Register Button
+                  GlassButton(
+                    text: 'Register Team',
+                    onPressed: _registerTeam,
+                    isLoading: _isLoading,
+                    icon: Icons.how_to_reg,
+                  ),
+                  const SizedBox(height: 40),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
