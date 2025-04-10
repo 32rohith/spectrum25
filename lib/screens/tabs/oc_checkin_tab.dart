@@ -277,494 +277,496 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Padding(
-      padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-              SizedBox(
-                height: MediaQuery.of(context).size.height * 0.05,
-                child: Text(
-            'Team Check-in',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimaryColor,
-            ),
-          ),
-              ),
-              SizedBox(
-                height: MediaQuery.of(context).size.height * 0.03,
-                child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-            'Verify and check in teams for the hackathon',
-            style: TextStyle(
-              color: AppTheme.textSecondaryColor,
-              fontSize: 16,
-            ),
-          ),
+      body: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.all(screenWidth * 0.04),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Text(
+                'Team Check-in',
+                style: TextStyle(
+                  fontSize: screenWidth * 0.06,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimaryColor,
                 ),
-              ],
-            ),
               ),
+              SizedBox(height: screenHeight * 0.01),
+              Text(
+                'Verify and check in teams for the hackathon',
+                style: TextStyle(
+                  color: AppTheme.textSecondaryColor,
+                  fontSize: screenWidth * 0.04,
+                ),
+              ),
+              SizedBox(height: screenHeight * 0.02),
               
               // Action buttons for QR
-              SizedBox(
-                height: MediaQuery.of(context).size.height * 0.08,
+              ElevatedButton(
+                onPressed: _toggleQRCode,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _showQRCode ? AppTheme.errorColor : AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(
+                    vertical: screenHeight * 0.015,
+                    horizontal: screenWidth * 0.04,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(screenWidth * 0.03),
+                  ),
+                ),
                 child: Row(
-            children: [
-                    // QR Generate Button
-              Expanded(
-                      child: ElevatedButton(
-                        onPressed: _toggleQRCode,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _showQRCode ? AppTheme.errorColor : AppTheme.primaryColor,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.all(16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                              _showQRCode ? Icons.close : Icons.qr_code,
-                              color: Colors.white,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                              _showQRCode ? 'Hide QR Code' : 'Show QR Code',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                            ),
-                          ),
-                        ],
-                      ),
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      _showQRCode ? Icons.close : Icons.qr_code,
+                      color: Colors.white,
+                      size: screenWidth * 0.05,
+                    ),
+                    SizedBox(width: screenWidth * 0.02),
+                    Text(
+                      _showQRCode ? 'Hide QR Code' : 'Show QR Code',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: screenWidth * 0.04,
                       ),
                     ),
                   ],
                 ),
               ),
+              SizedBox(height: screenHeight * 0.02),
               
-              // QR Code display section
-              if (_showQRCode)
-                Container(
-                  margin: EdgeInsets.only(top: MediaQuery.of(context).size.height * 0.02),
-                  child: GlassCard(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(height: MediaQuery.of(context).size.height * 0.01),
-                      Text(
-                          'OC Verification QR Code',
-                        style: TextStyle(
-                          color: AppTheme.textPrimaryColor,
-                            fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                        SizedBox(height: MediaQuery.of(context).size.height * 0.01),
-                        Text(
-                          'Show this QR code to team leaders for verification',
-                          style: TextStyle(
-                            color: AppTheme.textSecondaryColor,
-                            fontSize: 14,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-                        Center(
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: SizedBox(
-                              height: MediaQuery.of(context).size.height * 0.25,
-                              width: MediaQuery.of(context).size.height * 0.25,
-                              child: QrImageView(
-                                data: _generateQRData(),
-                                version: QrVersions.auto,
-                                backgroundColor: Colors.white,
-                                foregroundColor: Colors.black,
-                              ),
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-                        Text(
-                          'QR Code refreshes automatically',
-                          style: TextStyle(
-                            color: AppTheme.textSecondaryColor,
-                            fontSize: 12,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        SizedBox(height: MediaQuery.of(context).size.height * 0.01),
-                    ],
-                  ),
-                ),
-              ),
-              
-              SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-              
-              // Stats Cards with MediaQuery heights
-              Column(
-                children: [
-                  // First row of stats
-                  Row(
-                    children: [
+              // Main content area with Expanded to fill remaining space and scrollable
               Expanded(
-                        child: SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.12,
-                child: GlassCard(
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // QR Code display section
+                      if (_showQRCode)
+                        GlassCard(
+                          child: Padding(
+                            padding: EdgeInsets.all(screenWidth * 0.04),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'OC Verification QR Code',
+                                  style: TextStyle(
+                                    color: AppTheme.textPrimaryColor,
+                                    fontSize: screenWidth * 0.04,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(height: screenHeight * 0.01),
+                                Text(
+                                  'Show this QR code to team leaders for verification',
+                                  style: TextStyle(
+                                    color: AppTheme.textSecondaryColor,
+                                    fontSize: screenWidth * 0.035,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                SizedBox(height: screenHeight * 0.02),
+                                Container(
+                                  padding: EdgeInsets.all(screenWidth * 0.04),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(screenWidth * 0.04),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.1),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 5),
+                                      ),
+                                    ],
+                                  ),
+                                  child: SizedBox(
+                                    // Make QR code responsive
+                                    height: screenWidth * 0.6,
+                                    width: screenWidth * 0.6,
+                                    child: QrImageView(
+                                      data: _generateQRData(),
+                                      version: QrVersions.auto,
+                                      backgroundColor: Colors.white,
+                                      foregroundColor: Colors.black,
+                                      padding: EdgeInsets.zero,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(height: screenHeight * 0.02),
+                                Text(
+                                  'QR Code refreshes automatically',
+                                  style: TextStyle(
+                                    color: AppTheme.textSecondaryColor,
+                                    fontSize: screenWidth * 0.03,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      
+                      SizedBox(height: screenHeight * 0.02),
+                      
+                      // Stats Cards with responsive heights and widths
+                      // First row of stats
                       Row(
                         children: [
-                          Icon(
-                            Icons.groups,
-                            color: AppTheme.primaryColor,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                            'Total Teams',
-                            style: TextStyle(
-                              color: AppTheme.textSecondaryColor,
-                              fontSize: 14,
+                          Expanded(
+                            child: GlassCard(
+                              child: Padding(
+                                padding: EdgeInsets.all(screenWidth * 0.03),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.groups,
+                                          color: AppTheme.primaryColor,
+                                          size: screenWidth * 0.05,
                                         ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
+                                        SizedBox(width: screenWidth * 0.02),
+                                        Expanded(
+                                          child: Text(
+                                            'Total Teams',
+                                            style: TextStyle(
+                                              color: AppTheme.textSecondaryColor,
+                                              fontSize: screenWidth * 0.035,
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    SizedBox(height: screenHeight * 0.01),
+                                    Text(
+                                      '${_teams.length}',
+                                      style: TextStyle(
+                                        color: AppTheme.textPrimaryColor,
+                                        fontSize: screenWidth * 0.055,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: screenWidth * 0.02),
+                          Expanded(
+                            child: GlassCard(
+                              child: Padding(
+                                padding: EdgeInsets.all(screenWidth * 0.03),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.check_circle,
+                                          color: AppTheme.accentColor,
+                                          size: screenWidth * 0.05,
+                                        ),
+                                        SizedBox(width: screenWidth * 0.02),
+                                        Expanded(
+                                          child: Text(
+                                            'Teams Checked In',
+                                            style: TextStyle(
+                                              color: AppTheme.textSecondaryColor,
+                                              fontSize: screenWidth * 0.035,
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    SizedBox(height: screenHeight * 0.01),
+                                    Text(
+                                      '${_teams.where((team) => team['isVerified'] == true).length}',
+                                      style: TextStyle(
+                                        color: AppTheme.textPrimaryColor,
+                                        fontSize: screenWidth * 0.055,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                          '${_teams.length}',
-                        style: TextStyle(
-                          color: AppTheme.textPrimaryColor,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-                      ),
-                      SizedBox(width: MediaQuery.of(context).size.width * 0.02),
-                      Expanded(
-                        child: SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.12,
-                          child: GlassCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                                    Icon(
-                                      Icons.check_circle,
-                                      color: AppTheme.accentColor,
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'Teams Checked In',
-                      style: TextStyle(
-                                          color: AppTheme.textSecondaryColor,
-                                          fontSize: 14,
-                      ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                    ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                    Text(
-                                  '${_teams.where((team) => team['isVerified'] == true).length}',
-                      style: TextStyle(
-                                    color: AppTheme.textPrimaryColor,
-                                    fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.01),
-                  // Second row of stats
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.12,
-                child: GlassCard(
-                  child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                                Row(
+                      SizedBox(height: screenHeight * 0.01),
+                      
+                      // Second row of stats
+                      Row(
+                        children: [
+                          Expanded(
+                            child: GlassCard(
+                              child: Padding(
+                                padding: EdgeInsets.all(screenWidth * 0.03),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Icon(
-                                      Icons.person,
-                                      color: AppTheme.primaryColor,
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'Total Members',
-                        style: TextStyle(
-                          color: AppTheme.textSecondaryColor,
-                          fontSize: 14,
-                        ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                      Text(
-                                  '${_teams.fold<int>(0, (sum, team) => sum + ((team['members']?.length ?? 0) + 1) as int)}',
-                        style: TextStyle(
-                                    color: AppTheme.textPrimaryColor,
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-                      ),
-                      SizedBox(width: MediaQuery.of(context).size.width * 0.02),
-                      Expanded(
-                        child: SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.12,
-                child: GlassCard(
-                  child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.check_circle,
-                                      color: AppTheme.accentColor,
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'Members Checked In',
-                                        style: TextStyle(
-                                          color: AppTheme.textSecondaryColor,
-                                          fontSize: 14,
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.person,
+                                          color: AppTheme.primaryColor,
+                                          size: screenWidth * 0.05,
                                         ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
+                                        SizedBox(width: screenWidth * 0.02),
+                                        Expanded(
+                                          child: Text(
+                                            'Total Members',
+                                            style: TextStyle(
+                                              color: AppTheme.textSecondaryColor,
+                                              fontSize: screenWidth * 0.035,
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    SizedBox(height: screenHeight * 0.01),
+                                    Text(
+                                      '${_teams.fold<int>(0, (sum, team) => sum + ((team['members']?.length ?? 0) + 1) as int)}',
+                                      style: TextStyle(
+                                        color: AppTheme.textPrimaryColor,
+                                        fontSize: screenWidth * 0.055,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ],
                                 ),
-                      const SizedBox(height: 8),
-                      Text(
-                                  '${_teams.where((team) => team['isVerified'] == true).fold<int>(0, (sum, team) {
-                                    int checkedIn = 0;
-                                    // Count leader if verified
-                                    if (team['leader']?['isVerified'] == true) {
-                                      checkedIn++;
-                                    }
-                                    // Count verified members
-                                    if (team['members'] != null) {
-                                      if (team['members'] is List) {
-                                        checkedIn += (team['members'] as List).where((m) => m['isVerified'] == true).length;
-                                      } else if (team['members'] is Map && team['members']['isVerified'] == true) {
-                                        checkedIn++;
-                                      }
-                                    }
-                                    return sum + checkedIn;
-                                  })}',
-                        style: TextStyle(
-                          color: AppTheme.textPrimaryColor,
-                                    fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                              ],
-                          ),
-                        ),
-                      ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.01),
-                  // Third row of stats
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.12,
-                          child: GlassCard(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.hourglass_empty,
-                                      color: AppTheme.primaryColor,
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'Teams Started Check-in',
-                        style: TextStyle(
-                          color: AppTheme.textSecondaryColor,
-                          fontSize: 14,
-                        ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  '0',
-                                  style: TextStyle(
-                                    color: AppTheme.textPrimaryColor,
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                      SizedBox(width: MediaQuery.of(context).size.width * 0.02),
-                      Expanded(
-                        child: SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.12,
-                          child: GlassCard(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
+                          SizedBox(width: screenWidth * 0.02),
+                          Expanded(
+                            child: GlassCard(
+                              child: Padding(
+                                padding: EdgeInsets.all(screenWidth * 0.03),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Icon(
-                                      Icons.pending_actions,
-                                      color: AppTheme.accentColor,
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'Teams Not Checked In',
-                                        style: TextStyle(
-                                          color: AppTheme.textSecondaryColor,
-                                          fontSize: 14,
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.check_circle,
+                                          color: AppTheme.accentColor,
+                                          size: screenWidth * 0.05,
                                         ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
+                                        SizedBox(width: screenWidth * 0.02),
+                                        Expanded(
+                                          child: Text(
+                                            'Members Checked In',
+                                            style: TextStyle(
+                                              color: AppTheme.textSecondaryColor,
+                                              fontSize: screenWidth * 0.035,
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    SizedBox(height: screenHeight * 0.01),
+                                    Text(
+                                      '${_teams.where((team) => team['isVerified'] == true).fold<int>(0, (sum, team) {
+                                        int checkedIn = 0;
+                                        // Count leader if verified
+                                        if (team['leader']?['isVerified'] == true) {
+                                          checkedIn++;
+                                        }
+                                        // Count verified members
+                                        if (team['members'] != null) {
+                                          if (team['members'] is List) {
+                                            checkedIn += (team['members'] as List).where((m) => m['isVerified'] == true).length;
+                                          } else if (team['members'] is Map && team['members']['isVerified'] == true) {
+                                            checkedIn++;
+                                          }
+                                        }
+                                        return sum + checkedIn;
+                                      })}',
+                                      style: TextStyle(
+                                        color: AppTheme.textPrimaryColor,
+                                        fontSize: screenWidth * 0.055,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  '${_teams.where((team) => team['isVerified'] != true).length}',
-                                  style: TextStyle(
-                                    color: AppTheme.textPrimaryColor,
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
+                      ),
+                      SizedBox(height: screenHeight * 0.01),
+                      
+                      // Third row of stats
+                      Row(
+                        children: [
+                          Expanded(
+                            child: GlassCard(
+                              child: Padding(
+                                padding: EdgeInsets.all(screenWidth * 0.03),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.hourglass_empty,
+                                          color: AppTheme.primaryColor,
+                                          size: screenWidth * 0.05,
+                                        ),
+                                        SizedBox(width: screenWidth * 0.02),
+                                        Expanded(
+                                          child: Text(
+                                            'Teams Started Check-in',
+                                            style: TextStyle(
+                                              color: AppTheme.textSecondaryColor,
+                                              fontSize: screenWidth * 0.035,
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    SizedBox(height: screenHeight * 0.01),
+                                    Text(
+                                      '0',
+                                      style: TextStyle(
+                                        color: AppTheme.textPrimaryColor,
+                                        fontSize: screenWidth * 0.055,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: screenWidth * 0.02),
+                          Expanded(
+                            child: GlassCard(
+                              child: Padding(
+                                padding: EdgeInsets.all(screenWidth * 0.03),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.pending_actions,
+                                          color: AppTheme.accentColor,
+                                          size: screenWidth * 0.05,
+                                        ),
+                                        SizedBox(width: screenWidth * 0.02),
+                                        Expanded(
+                                          child: Text(
+                                            'Teams Not Checked In',
+                                            style: TextStyle(
+                                              color: AppTheme.textSecondaryColor,
+                                              fontSize: screenWidth * 0.035,
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    SizedBox(height: screenHeight * 0.01),
+                                    Text(
+                                      '${_teams.where((team) => team['isVerified'] != true).length}',
+                                      style: TextStyle(
+                                        color: AppTheme.textPrimaryColor,
+                                        fontSize: screenWidth * 0.055,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: screenHeight * 0.01),
+                      
+                      // Check-in Progress
+                      GlassCard(
+                        child: Padding(
+                          padding: EdgeInsets.all(screenWidth * 0.03),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Check-in Progress',
+                                    style: TextStyle(
+                                      color: AppTheme.textPrimaryColor,
+                                      fontSize: screenWidth * 0.04,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    _teams.isEmpty ? '0%' : 
+                                      '${(_teams.where((team) => team['isVerified'] == true).length * 100 / _teams.length).round()}%',
+                                    style: TextStyle(
+                                      color: AppTheme.accentColor,
+                                      fontSize: screenWidth * 0.04,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: screenHeight * 0.01),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(screenWidth * 0.02),
+                                child: LinearProgressIndicator(
+                                  value: _teams.isEmpty ? 0 : 
+                                    _teams.where((team) => team['isVerified'] == true).length / _teams.length,
+                                  minHeight: screenHeight * 0.015,
+                                  backgroundColor: AppTheme.cardColor,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    AppTheme.accentColor,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
-                ],
-              ),
-              
-              // Check-in Progress
-              SizedBox(height: MediaQuery.of(context).size.height * 0.01),
-              SizedBox(
-                height: MediaQuery.of(context).size.height * 0.12,
-                                  child: GlassCard(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text(
-                            'Check-in Progress',
-                                    style: TextStyle(
-                                                  color: AppTheme.textPrimaryColor,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            _teams.isEmpty ? '0%' : 
-                              '${(_teams.where((team) => team['isVerified'] == true).length * 100 / _teams.length).round()}%',
-                                                  style: TextStyle(
-                              color: AppTheme.accentColor,
-                              fontSize: 16,
-                                                    fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                      const SizedBox(height: 8),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: LinearProgressIndicator(
-                          value: _teams.isEmpty ? 0 : 
-                            _teams.where((team) => team['isVerified'] == true).length / _teams.length,
-                          minHeight: 10,
-                          backgroundColor: AppTheme.cardColor,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            AppTheme.accentColor,
-                          ),
                         ),
                       ),
-                    ],
-                  ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                      
+                      
+                      
+            ],
+          ),
         ),
-      ),
-    );
+        ),
+      ],
+    ),),),);
   }
 }
-
-// Team data model
 class TeamData {
   final String id;
   final String name;

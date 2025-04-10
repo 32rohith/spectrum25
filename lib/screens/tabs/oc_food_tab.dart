@@ -441,30 +441,12 @@ class _OCFoodTabState extends State<OCFoodTab> {
               ],
             ),
             
+            // Remove duplicate Scan button
             const SizedBox(height: 24),
-            
-            // Scan button
-            _isScanning
-                ? const SizedBox()
-                : Center(
-                    child: ElevatedButton.icon(
-                      onPressed: _startScanner,
-                      icon: const Icon(Icons.qr_code_scanner),
-                      label: const Text('Scan Meal QR Code'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.accentColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                      ),
-                    ),
-                  ),
             
             // Consumption by Team
             if (consumptionsByTeam != null && consumptionsByTeam.isNotEmpty) ...[
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               Text(
                 'Consumption by Team',
                 style: TextStyle(
@@ -551,8 +533,11 @@ class _OCFoodTabState extends State<OCFoodTab> {
                 ),
               ),
               const SizedBox(height: 8),
-              Expanded(
+              Container(
+                height: 300, // Set a fixed height for the ListView
                 child: ListView.builder(
+                  shrinkWrap: true, 
+                  physics: const AlwaysScrollableScrollPhysics(),
                   itemCount: _recentConsumptions.length,
                   itemBuilder: (context, index) {
                     final consumption = _recentConsumptions[index];
@@ -1126,180 +1111,197 @@ class _OCFoodTabState extends State<OCFoodTab> {
                               ],
                             )
                           : _lastScanResult != null
-                              ? Column(
-                                  children: [
-                                    _buildScanResult(),
-                                    
-                                    // Meal selection tabs after scan result
-                                    if (_meals.isNotEmpty) ...[
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        'Select Meal',
-                                        style: TextStyle(
-                                          color: AppTheme.textPrimaryColor,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: SizedBox(
-                                              height: 48,
-                                              child: ListView.builder(
-                                                scrollDirection: Axis.horizontal,
-                                                itemCount: _meals.length,
-                                                itemBuilder: (context, index) {
-                                                  final meal = _meals[index];
-                                                  final isSelected = _selectedMeal?.id == meal.id;
-                                                  
-                                                  return Padding(
-                                                    padding: const EdgeInsets.only(right: 8),
-                                                    child: InkWell(
-                                                      onTap: () {
-                                                        setState(() {
-                                                          _selectedMeal = meal;
-                                                        });
-                                                        _loadRecentConsumptions(meal.id);
-                                                      },
-                                                      borderRadius: BorderRadius.circular(24),
-                                                      child: Container(
-                                                        padding: const EdgeInsets.symmetric(
-                                                          horizontal: 16,
-                                                          vertical: 8,
-                                                        ),
-                                                        decoration: BoxDecoration(
-                                                          color: isSelected
-                                                              ? AppTheme.primaryColor
-                                                              : AppTheme.primaryColor.withOpacity(0.1),
+                              ? Scrollbar(
+                                  thumbVisibility: true,
+                                  thickness: 6,
+                                  radius: Radius.circular(10),
+                                  child: SingleChildScrollView(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        _buildScanResult(),
+                                        
+                                        // Meal selection tabs after scan result
+                                        if (_meals.isNotEmpty) ...[
+                                          const SizedBox(height: 16),
+                                          Text(
+                                            'Select Meal',
+                                            style: TextStyle(
+                                              color: AppTheme.textPrimaryColor,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: SizedBox(
+                                                  height: 48,
+                                                  child: ListView.builder(
+                                                    scrollDirection: Axis.horizontal,
+                                                    itemCount: _meals.length,
+                                                    itemBuilder: (context, index) {
+                                                      final meal = _meals[index];
+                                                      final isSelected = _selectedMeal?.id == meal.id;
+                                                      
+                                                      return Padding(
+                                                        padding: const EdgeInsets.only(right: 8),
+                                                        child: InkWell(
+                                                          onTap: () {
+                                                            setState(() {
+                                                              _selectedMeal = meal;
+                                                            });
+                                                            _loadRecentConsumptions(meal.id);
+                                                          },
                                                           borderRadius: BorderRadius.circular(24),
-                                                        ),
-                                                        child: Center(
-                                                          child: Text(
-                                                            meal.name,
-                                                            style: TextStyle(
+                                                          child: Container(
+                                                            padding: const EdgeInsets.symmetric(
+                                                              horizontal: 16,
+                                                              vertical: 8,
+                                                            ),
+                                                            decoration: BoxDecoration(
                                                               color: isSelected
-                                                                  ? Colors.white
-                                                                  : AppTheme.textPrimaryColor,
-                                                              fontWeight: FontWeight.bold,
+                                                                  ? AppTheme.primaryColor
+                                                                  : AppTheme.primaryColor.withOpacity(0.1),
+                                                              borderRadius: BorderRadius.circular(24),
+                                                            ),
+                                                            child: Center(
+                                                              child: Text(
+                                                                meal.name,
+                                                                style: TextStyle(
+                                                                  color: isSelected
+                                                                      ? Colors.white
+                                                                      : AppTheme.textPrimaryColor,
+                                                                  fontWeight: FontWeight.bold,
+                                                                ),
+                                                              ),
                                                             ),
                                                           ),
                                                         ),
-                                                      ),
-                                                    ),
-                                                  );
-                                                },
+                                                      );
+                                                    },
+                                                  ),
+                                                ),
                                               ),
-                                            ),
-                                          ),
-                                          IconButton(
-                                            icon: Icon(Icons.refresh, color: AppTheme.primaryColor),
-                                            tooltip: 'Reset & refresh meals',
-                                            onPressed: _resetAndRefreshMeals,
+                                              IconButton(
+                                                icon: Icon(Icons.refresh, color: AppTheme.primaryColor),
+                                                tooltip: 'Reset & refresh meals',
+                                                onPressed: _resetAndRefreshMeals,
+                                              ),
+                                            ],
                                           ),
                                         ],
-                                      ),
-                                    ],
-                                    
-                                    Expanded(child: _buildMealStatistics()),
-                                  ],
-                                )
-                              : Column(
-                                  children: [
-                                    // Meal selection tabs
-                                    if (_meals.isNotEmpty) ...[
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        'Select Meal',
-                                        style: TextStyle(
-                                          color: AppTheme.textPrimaryColor,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: SizedBox(
-                                              height: 48,
-                                              child: ListView.builder(
-                                                scrollDirection: Axis.horizontal,
-                                                itemCount: _meals.length,
-                                                itemBuilder: (context, index) {
-                                                  final meal = _meals[index];
-                                                  final isSelected = _selectedMeal?.id == meal.id;
-                                                  
-                                                  return Padding(
-                                                    padding: const EdgeInsets.only(right: 8),
-                                                    child: InkWell(
-                                                      onTap: () {
-                                                        setState(() {
-                                                          _selectedMeal = meal;
-                                                        });
-                                                        _loadRecentConsumptions(meal.id);
-                                                      },
-                                                      borderRadius: BorderRadius.circular(24),
-                                                      child: Container(
-                                                        padding: const EdgeInsets.symmetric(
-                                                          horizontal: 16,
-                                                          vertical: 8,
-                                                        ),
-                                                        decoration: BoxDecoration(
-                                                          color: isSelected
-                                                              ? AppTheme.primaryColor
-                                                              : AppTheme.primaryColor.withOpacity(0.1),
-                                                          borderRadius: BorderRadius.circular(24),
-                                                        ),
-                                                        child: Center(
-                                                          child: Text(
-                                                            meal.name,
-                                                            style: TextStyle(
-                                                              color: isSelected
-                                                                  ? Colors.white
-                                                                  : AppTheme.textPrimaryColor,
-                                                              fontWeight: FontWeight.bold,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  );
-                                                },
-                                              ),
-                                            ),
-                                          ),
-                                          IconButton(
-                                            icon: Icon(Icons.refresh, color: AppTheme.primaryColor),
-                                            tooltip: 'Reset & refresh meals',
-                                            onPressed: _resetAndRefreshMeals,
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                    
-                                    // Start QR scan button prominently displayed
-                                    const SizedBox(height: 24),
-                                    Center(
-                                      child: ElevatedButton.icon(
-                                        onPressed: _startScanner,
-                                        icon: const Icon(Icons.qr_code_scanner, size: 28),
-                                        label: const Text('Scan Meal QR Code', style: TextStyle(fontSize: 16)),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppTheme.accentColor,
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 32,
-                                            vertical: 16,
-                                          ),
-                                        ),
-                                      ),
+                                        
+                                        const SizedBox(height: 16),
+                                        _buildMealStatistics(),
+                                      ],
                                     ),
-                                    const SizedBox(height: 24),
-                                    
-                                    Expanded(child: _buildMealStatistics()),
-                                  ],
+                                  ),
+                                )
+                              : Scrollbar(
+                                  thumbVisibility: true,
+                                  thickness: 6,
+                                  radius: Radius.circular(10),
+                                  child: SingleChildScrollView(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        // Meal selection tabs
+                                        if (_meals.isNotEmpty) ...[
+                                          const SizedBox(height: 16),
+                                          Text(
+                                            'Select Meal',
+                                            style: TextStyle(
+                                              color: AppTheme.textPrimaryColor,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: SizedBox(
+                                                  height: 48,
+                                                  child: ListView.builder(
+                                                    scrollDirection: Axis.horizontal,
+                                                    itemCount: _meals.length,
+                                                    itemBuilder: (context, index) {
+                                                      final meal = _meals[index];
+                                                      final isSelected = _selectedMeal?.id == meal.id;
+                                                      
+                                                      return Padding(
+                                                        padding: const EdgeInsets.only(right: 8),
+                                                        child: InkWell(
+                                                          onTap: () {
+                                                            setState(() {
+                                                              _selectedMeal = meal;
+                                                            });
+                                                            _loadRecentConsumptions(meal.id);
+                                                          },
+                                                          borderRadius: BorderRadius.circular(24),
+                                                          child: Container(
+                                                            padding: const EdgeInsets.symmetric(
+                                                              horizontal: 16,
+                                                              vertical: 8,
+                                                            ),
+                                                            decoration: BoxDecoration(
+                                                              color: isSelected
+                                                                  ? AppTheme.primaryColor
+                                                                  : AppTheme.primaryColor.withOpacity(0.1),
+                                                              borderRadius: BorderRadius.circular(24),
+                                                            ),
+                                                            child: Center(
+                                                              child: Text(
+                                                                meal.name,
+                                                                style: TextStyle(
+                                                                  color: isSelected
+                                                                      ? Colors.white
+                                                                      : AppTheme.textPrimaryColor,
+                                                                  fontWeight: FontWeight.bold,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      );
+                                                    },
+                                                  ),
+                                                ),
+                                              ),
+                                              IconButton(
+                                                icon: Icon(Icons.refresh, color: AppTheme.primaryColor),
+                                                tooltip: 'Reset & refresh meals',
+                                                onPressed: _resetAndRefreshMeals,
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                        
+                                        // Start QR scan button prominently displayed
+                                        const SizedBox(height: 24),
+                                        Center(
+                                          child: ElevatedButton.icon(
+                                            onPressed: _startScanner,
+                                            icon: const Icon(Icons.qr_code_scanner, size: 28),
+                                            label: const Text('Scan Meal QR Code', style: TextStyle(fontSize: 16)),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: AppTheme.accentColor,
+                                              foregroundColor: Colors.white,
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 32,
+                                                vertical: 16,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 24),
+                                        
+                                        _buildMealStatistics(),
+                                      ],
+                                    ),
+                                  ),
                                 ),
             ),
             

@@ -470,6 +470,8 @@ class MemberForm extends StatefulWidget {
   final TextEditingController _phoneController = TextEditingController();
   final List<String> deviceOptions;
   final String initialDevice;
+  // Store the current device value
+  String _currentDevice = 'Android';
   
   // Store current values in the state
   MemberForm({
@@ -478,7 +480,9 @@ class MemberForm extends StatefulWidget {
     required this.onRemove,
     required this.deviceOptions,
     this.initialDevice = 'Android',
-  });
+  }) {
+    _currentDevice = initialDevice;
+  }
   
   // Use a static method to create a new form with updated index
   static MemberForm withNewIndex(MemberForm oldForm, int newIndex) {
@@ -501,7 +505,7 @@ class MemberForm extends StatefulWidget {
       name: _nameController.text.trim(),
       email: _emailController.text.trim(),
       phone: _phoneController.text.trim(),
-      device: initialDevice, // Use the initial device value
+      device: _currentDevice, // Use the current device value
     );
   }
 
@@ -664,6 +668,7 @@ class _MemberFormState extends State<MemberForm> {
                       onChanged: (String? newValue) {
                         setState(() {
                           _selectedDevice = newValue!;
+                          widget._currentDevice = newValue;
                         });
                       },
                       items: widget.deviceOptions

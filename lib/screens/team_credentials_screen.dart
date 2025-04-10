@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/team.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
@@ -26,6 +27,46 @@ class TeamCredentialsScreen extends StatefulWidget {
 
 class _TeamCredentialsScreenState extends State<TeamCredentialsScreen> {
   bool _showPasswords = false;
+  bool _isLoadingLeaderCredentials = false;
+  Map<String, dynamic>? _leaderAuth;
+
+  @override
+  void initState() {
+    super.initState();
+    _leaderAuth = widget.leaderAuth;
+    if (_leaderAuth == null) {
+      _fetchLeaderCredentials();
+    }
+  }
+
+  Future<void> _fetchLeaderCredentials() async {
+    setState(() {
+      _isLoadingLeaderCredentials = true;
+    });
+    
+    try {
+      // Get leader auth info from team document
+      final FirebaseFirestore firestore = FirebaseFirestore.instance;
+      final teamDoc = await firestore.collection('teams').doc(widget.team.teamId).get();
+      
+      if (teamDoc.exists) {
+        final data = teamDoc.data();
+        setState(() {
+          _leaderAuth = data?['leaderAuth'] as Map<String, dynamic>? ?? {};
+          _isLoadingLeaderCredentials = false;
+        });
+      } else {
+        setState(() {
+          _isLoadingLeaderCredentials = false;
+        });
+      }
+    } catch (e) {
+      print('Error fetching leader credentials: $e');
+      setState(() {
+        _isLoadingLeaderCredentials = false;
+      });
+    }
+  }
 
   void _copyToClipboard(BuildContext context, String text, String message) {
     Clipboard.setData(ClipboardData(text: text));
@@ -156,22 +197,39 @@ class _TeamCredentialsScreenState extends State<TeamCredentialsScreen> {
                 
                 const SizedBox(height: 24),
                 
-                // Team Credentials Card
+                // Leader Credentials Card
                 GlassCard(
-                  child: Column(
+                  child: _isLoadingLeaderCredentials 
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: CircularProgressIndicator(),
+                      ),
+                    )
+                  : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Team Information (For Records Only)',
-                        style: TextStyle(
-                          color: AppTheme.accentColor,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.star,
+                            color: Colors.amber,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Team Leader Credentials',
+                            style: TextStyle(
+                              color: AppTheme.accentColor,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Please save this team information for your records. Team members will use their individual credentials to login.',
+                        'Use these credentials to login. Team leader has full access to manage the team.',
                         style: TextStyle(
                           color: AppTheme.textSecondaryColor,
                           fontSize: 14,
@@ -200,7 +258,7 @@ class _TeamCredentialsScreenState extends State<TeamCredentialsScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Team ID',
+                                    'Username',
                                     style: TextStyle(
                                       color: AppTheme.textSecondaryColor,
                                       fontSize: 14,
@@ -208,7 +266,7 @@ class _TeamCredentialsScreenState extends State<TeamCredentialsScreen> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    widget.team.username,
+                                    _leaderAuth != null && _leaderAuth!.containsKey('username') ? _leaderAuth!['username'] : 'Not available',
                                     style: TextStyle(
                                       color: AppTheme.textPrimaryColor,
                                       fontSize: 18,
@@ -218,17 +276,18 @@ class _TeamCredentialsScreenState extends State<TeamCredentialsScreen> {
                                 ],
                               ),
                             ),
-                            IconButton(
-                              icon: Icon(
-                                Icons.copy,
-                                color: AppTheme.accentColor,
+                            if (_leaderAuth != null && _leaderAuth!.containsKey('username'))
+                              IconButton(
+                                icon: Icon(
+                                  Icons.copy,
+                                  color: AppTheme.accentColor,
+                                ),
+                                onPressed: () => _copyToClipboard(
+                                  context,
+                                  _leaderAuth!['username'],
+                                  'Leader username copied to clipboard',
+                                ),
                               ),
-                              onPressed: () => _copyToClipboard(
-                                context,
-                                widget.team.username,
-                                'Team ID copied to clipboard',
-                              ),
-                            ),
                           ],
                         ),
                       ),
@@ -256,7 +315,7 @@ class _TeamCredentialsScreenState extends State<TeamCredentialsScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Team Password',
+                                    'Password',
                                     style: TextStyle(
                                       color: AppTheme.textSecondaryColor,
                                       fontSize: 14,
@@ -264,9 +323,11 @@ class _TeamCredentialsScreenState extends State<TeamCredentialsScreen> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    _showPasswords 
-                                      ? widget.team.password
-                                      : '••••••••••',
+                                    _leaderAuth != null && _leaderAuth!.containsKey('password')
+                                      ? (_showPasswords 
+                                          ? _leaderAuth!['password'] 
+                                          : '••••••••••')
+                                      : 'Not available',
                                     style: TextStyle(
                                       color: AppTheme.textPrimaryColor,
                                       fontSize: 18,
@@ -276,174 +337,24 @@ class _TeamCredentialsScreenState extends State<TeamCredentialsScreen> {
                                 ],
                               ),
                             ),
-                            IconButton(
-                              icon: Icon(
-                                Icons.copy,
-                                color: AppTheme.accentColor,
+                            if (_leaderAuth != null && _leaderAuth!.containsKey('password'))
+                              IconButton(
+                                icon: Icon(
+                                  Icons.copy,
+                                  color: AppTheme.accentColor,
+                                ),
+                                onPressed: () => _copyToClipboard(
+                                  context,
+                                  _leaderAuth!['password'],
+                                  'Leader password copied to clipboard',
+                                ),
                               ),
-                              onPressed: () => _copyToClipboard(
-                                context,
-                                widget.team.password,
-                                'Team password copied to clipboard',
-                              ),
-                            ),
                           ],
                         ),
                       ),
                     ],
                   ),
                 ),
-                
-                const SizedBox(height: 24),
-                
-                // Leader Credentials Card
-                if (widget.leaderAuth != null)
-                  GlassCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.star,
-                              color: Colors.amber,
-                              size: 24,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Team Leader Credentials',
-                              style: TextStyle(
-                                color: AppTheme.accentColor,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Credentials for ${widget.team.leader.name}',
-                          style: TextStyle(
-                            color: AppTheme.textSecondaryColor,
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Username
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppTheme.cardColor,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppTheme.glassBorderColor),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.alternate_email,
-                                color: AppTheme.primaryColor,
-                                size: 24,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Username',
-                                      style: TextStyle(
-                                        color: AppTheme.textSecondaryColor,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      widget.leaderAuth!['username'],
-                                      style: TextStyle(
-                                        color: AppTheme.textPrimaryColor,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              IconButton(
-                                icon: Icon(
-                                  Icons.copy,
-                                  color: AppTheme.accentColor,
-                                ),
-                                onPressed: () => _copyToClipboard(
-                                  context,
-                                  widget.leaderAuth!['username'],
-                                  'Leader username copied to clipboard',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        
-                        const SizedBox(height: 16),
-                        
-                        // Password
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppTheme.cardColor,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppTheme.glassBorderColor),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.vpn_key,
-                                color: AppTheme.primaryColor,
-                                size: 24,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Password',
-                                      style: TextStyle(
-                                        color: AppTheme.textSecondaryColor,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      _showPasswords 
-                                        ? widget.leaderAuth!['password'] 
-                                        : '••••••••••',
-                                      style: TextStyle(
-                                        color: AppTheme.textPrimaryColor,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              IconButton(
-                                icon: Icon(
-                                  Icons.copy,
-                                  color: AppTheme.accentColor,
-                                ),
-                                onPressed: () => _copyToClipboard(
-                                  context,
-                                  widget.leaderAuth!['password'],
-                                  'Leader password copied to clipboard',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 
                 // Members Credentials Cards
                 if (widget.membersAuth != null && widget.membersAuth!.isNotEmpty) ...[
