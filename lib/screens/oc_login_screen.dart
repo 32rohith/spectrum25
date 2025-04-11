@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:csv/csv.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import '../services/auth_service.dart';
 import 'oc_main_screen.dart';
 
 class OCLoginScreen extends StatefulWidget {
@@ -21,6 +22,7 @@ class _OCLoginScreenState extends State<OCLoginScreen> {
   bool _isLoading = false;
   String? _errorMessage;
   bool _showPassword = false;
+  final AuthService _authService = AuthService();
   
   // OC member data & login security
   List<List<dynamic>> _ocMembersData = [];
@@ -137,7 +139,7 @@ class _OCLoginScreenState extends State<OCLoginScreen> {
         _errorMessage = null;
       });
 
-      Future.delayed(const Duration(milliseconds: 800), () {
+      Future.delayed(const Duration(milliseconds: 800), () async {
         final name = _nameController.text;
         final phone = _phoneController.text;
         
@@ -148,6 +150,13 @@ class _OCLoginScreenState extends State<OCLoginScreen> {
         });
         
         if (isVerified) {
+          // Save login credentials for persistence
+          final loginResult = await _authService.loginOCMember(
+            name: name,
+            phone: phone,
+            isVerified: true,
+          );
+          
           // Reset login attempts on successful login
           setState(() {
             _loginAttempts = 0;

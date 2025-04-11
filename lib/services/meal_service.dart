@@ -659,16 +659,25 @@ class MealService {
         consumptionsByTeam[team]!.sort((a, b) => b.timestamp.compareTo(a.timestamp));
       }
       
-      // Get total expected members for this event
-      final membersSnapshot = await _firestore.collection('members').get();
+      // Get ONLY verified and registered members for this event
+      final membersSnapshot = await _firestore
+          .collection('members')
+          .where('isRegistered', isEqualTo: true)
+          .where('isVerified', isEqualTo: true)
+          .get();
+      
       final totalMembers = membersSnapshot.docs.length;
-      final remainingMembers = totalMembers - uniqueMembers.length;
+      
+      // If no registered members are found, use 8 as a default reasonable value
+      final actualTotalMembers = totalMembers > 0 ? totalMembers : 8;
+      
+      final remainingMembers = actualTotalMembers - uniqueMembers.length;
       
       return {
         'total': consumptions.length,
         'uniqueTeams': uniqueTeams.length,
         'uniqueMembers': uniqueMembers.length,
-        'totalMembers': totalMembers,
+        'totalMembers': actualTotalMembers,
         'remainingMembers': remainingMembers,
         'consumptionsByTeam': consumptionsByTeam,
         'consumptions': consumptions.map((c) => c.toJson()).toList(),

@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/team.dart';
 import 'dart:developer' as developer;
 
@@ -15,6 +16,16 @@ extension StringExtension on String {
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  
+  // Shared Preferences Keys
+  static const String _userIdKey = 'user_id';
+  static const String _userEmailKey = 'user_email';
+  static const String _userPasswordKey = 'user_password';
+  static const String _userRoleKey = 'user_role';
+  static const String _isLoggedInKey = 'is_logged_in';
+  static const String _isOCMemberKey = 'is_oc_member';
+  static const String _ocNameKey = 'oc_name';
+  static const String _ocPhoneKey = 'oc_phone';
   
   // Generate a unique username and password
   Map<String, String> _generateCredentials(String name, String role) {
@@ -352,6 +363,14 @@ class AuthService {
                 password: memberData['password'] as String,
               );
               developer.log('Firebase Auth session established for: ${_auth.currentUser?.email}');
+              
+              // Save login credentials for persistent login
+              await _saveLoginCredentials(
+                userId: memberDoc.id,
+                userEmail: userEmail,
+                password: memberData['password'] as String,
+                userRole: userRole,
+              );
             } catch (authError) {
               developer.log('Failed to establish Firebase Auth session: $authError');
               // Continue with Firestore data anyway since we've verified credentials
@@ -433,6 +452,14 @@ class AuthService {
               };
             }
             
+            // Save login credentials for persistent login
+            await _saveLoginCredentials(
+              userId: memberDoc.id,
+              userEmail: email,
+              password: password,
+              userRole: memberData['role'],
+            );
+            
             final team = Team.fromJson(teamData);
             
             developer.log('Loaded user data: ${memberData['name']} (${memberData['email']}) from ${teamData['teamName']}');
@@ -472,6 +499,164 @@ class AuthService {
         'success': false,
         'message': 'An unexpected error occurred: $e',
       };
+    }
+  }
+  
+  // Save login credentials for persistent login
+  Future<void> _saveLoginCredentials({
+    required String userId,
+    required String userEmail,
+    required String password,
+    required String userRole,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_userIdKey, userId);
+      await prefs.setString(_userEmailKey, userEmail);
+      await prefs.setString(_userPasswordKey, password);
+      await prefs.setString(_userRoleKey, userRole);
+      await prefs.setBool(_isLoggedInKey, true);
+      
+      developer.log('Saved login credentials for persistent login');
+    } catch (e) {
+      developer.log('Error saving login credentials: $e');
+    }
+  }
+  
+  // Check if user is logged in
+  Future<bool> isLoggedIn() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_isLoggedInKey) ?? false;
+    } catch (e) {
+      developer.log('Error checking login status: $e');
+      return false;
+    }
+  }
+  
+  // Try to login with saved credentials
+  Future<Map<String, dynamic>> loginWithSavedCredentials() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final isLoggedIn = prefs.getBool(_isLoggedInKey) ?? false;
+      
+      if (!isLoggedIn) {
+        developer.log('No saved login credentials found');
+        return {
+          'success': false,
+          'message': 'No saved login credentials found',
+        };
+      }
+      
+      final userEmail = prefs.getString(_userEmailKey);
+      final password = prefs.getString(_userPasswordKey);
+      
+      if (userEmail == null || password == null) {
+        developer.log('Incomplete saved login credentials');
+        return {
+          'success': false,
+          'message': 'Incomplete saved login credentials',
+        };
+      }
+      
+      // Try to login with Firebase Auth first
+      try {
+        await _auth.signInWithEmailAndPassword(
+          email: userEmail,
+          password: password,
+        );
+        
+        developer.log('Firebase Auth successful with saved credentials for: $userEmail');
+        
+        // Get member data
+        final memberDoc = await _firestore.collection('members').doc(userEmail).get();
+        
+        if (memberDoc.exists) {
+          developer.log('Member found by email document ID: ${memberDoc.id}');
+          final memberData = memberDoc.data() as Map<String, dynamic>;
+          
+          // Check if registered
+          if (memberData['isRegistered'] != true) {
+            developer.log('Account not registered');
+            await signOut();
+            return {
+              'success': false,
+              'message': 'This account has not been properly registered',
+            };
+          }
+          
+          final teamId = memberData['teamId'];
+          
+          // Get team data
+          developer.log('Retrieving team data for member with teamId: $teamId');
+          final teamSnapshot = await _firestore.collection('teams').doc(teamId).get();
+          
+          if (teamSnapshot.exists) {
+            developer.log('Team data found for team: ${teamSnapshot.id}');
+            final teamData = teamSnapshot.data() as Map<String, dynamic>;
+            
+            // Check if team is registered
+            if (teamData['isRegistered'] != true) {
+              developer.log('Team not registered');
+              await signOut();
+              return {
+                'success': false,
+                'message': 'This team has not been properly registered',
+              };
+            }
+            
+            final team = Team.fromJson(teamData);
+            final userRole = memberData['role'] as String? ?? '';
+            
+            developer.log('Successfully logged in with saved credentials');
+            developer.log('Loaded user data: ${memberData['name']} (${memberData['email']}) from ${teamData['teamName']}');
+            
+            return {
+              'success': true,
+              'team': team,
+              'userRole': userRole,
+              'userId': memberDoc.id,
+              'userName': memberData['name'],
+              'userEmail': memberData['email'],
+              'message': 'Login successful with saved credentials',
+            };
+          }
+        }
+      } catch (e) {
+        developer.log('Error logging in with saved credentials: $e');
+      }
+      
+      // If we got here, something went wrong with the saved credentials
+      await clearSavedCredentials();
+      return {
+        'success': false,
+        'message': 'Failed to login with saved credentials',
+      };
+    } catch (e) {
+      developer.log('Unexpected error during saved credentials login: $e');
+      return {
+        'success': false,
+        'message': 'An unexpected error occurred',
+      };
+    }
+  }
+  
+  // Clear saved credentials
+  Future<void> clearSavedCredentials() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_userIdKey);
+      await prefs.remove(_userEmailKey);
+      await prefs.remove(_userPasswordKey);
+      await prefs.remove(_userRoleKey);
+      await prefs.remove(_isLoggedInKey);
+      await prefs.remove(_isOCMemberKey);
+      await prefs.remove(_ocNameKey);
+      await prefs.remove(_ocPhoneKey);
+      
+      developer.log('Cleared saved login credentials');
+    } catch (e) {
+      developer.log('Error clearing saved credentials: $e');
     }
   }
   
@@ -556,6 +741,7 @@ class AuthService {
   Future<void> signOut() async {
     developer.log('Signing out user');
     await _auth.signOut();
+    await clearSavedCredentials();
   }
   
   // Get current Firebase user
@@ -629,5 +815,108 @@ class AuthService {
   // Get current user ID
   String? getCurrentUserId() {
     return _auth.currentUser?.uid;
+  }
+
+  // Login as OC member
+  Future<Map<String, dynamic>> loginOCMember({
+    required String name,
+    required String phone,
+    required bool isVerified,
+  }) async {
+    try {
+      developer.log('OC member login for: $name');
+      
+      if (isVerified) {
+        // Save OC member login credentials
+        await _saveOCLoginCredentials(
+          name: name,
+          phone: phone,
+        );
+        
+        return {
+          'success': true,
+          'message': 'OC login successful',
+          'name': name,
+        };
+      } else {
+        return {
+          'success': false,
+          'message': 'OC verification failed',
+        };
+      }
+    } catch (e) {
+      developer.log('Error during OC login: $e');
+      return {
+        'success': false,
+        'message': 'An error occurred during OC login: $e',
+      };
+    }
+  }
+  
+  // Save OC member login credentials
+  Future<void> _saveOCLoginCredentials({
+    required String name,
+    required String phone,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_ocNameKey, name);
+      await prefs.setString(_ocPhoneKey, phone);
+      await prefs.setBool(_isOCMemberKey, true);
+      await prefs.setBool(_isLoggedInKey, true);
+      await prefs.setString(_userRoleKey, 'oc'); // Set role as 'oc'
+      
+      developer.log('Saved OC login credentials for persistent login');
+    } catch (e) {
+      developer.log('Error saving OC login credentials: $e');
+    }
+  }
+  
+  // Check if logged in as OC member
+  Future<bool> isOCLoggedIn() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_isOCMemberKey) ?? false;
+    } catch (e) {
+      developer.log('Error checking OC login status: $e');
+      return false;
+    }
+  }
+  
+  // Get OC member login info
+  Future<Map<String, dynamic>> getOCLoginInfo() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final isOCMember = prefs.getBool(_isOCMemberKey) ?? false;
+      
+      if (!isOCMember) {
+        return {
+          'success': false,
+          'message': 'Not logged in as OC member',
+        };
+      }
+      
+      final name = prefs.getString(_ocNameKey);
+      final phone = prefs.getString(_ocPhoneKey);
+      
+      if (name == null || phone == null) {
+        return {
+          'success': false,
+          'message': 'Incomplete OC login information',
+        };
+      }
+      
+      return {
+        'success': true,
+        'name': name,
+        'phone': phone,
+      };
+    } catch (e) {
+      developer.log('Error getting OC login info: $e');
+      return {
+        'success': false,
+        'message': 'Error getting OC login info: $e',
+      };
+    }
   }
 }
