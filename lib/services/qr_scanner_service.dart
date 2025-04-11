@@ -201,6 +201,8 @@ class _QRScannerWidgetState extends State<QRScannerWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Scan QR Code'),
@@ -223,53 +225,57 @@ class _QRScannerWidgetState extends State<QRScannerWidget> {
             Expanded(
               flex: 5,
               child: controller != null 
-                ? MobileScanner(
-                    controller: controller!,
-                    onDetect: (capture) {
-                      final List<Barcode> barcodes = capture.barcodes;
-                      if (barcodes.isNotEmpty && !isScanned && !isProcessing) {
-                        final String? code = barcodes.first.rawValue;
-                        if (code != null) {
-                          _processDetectedCode(code);
+                ? SizedBox(
+                    width: screenWidth,
+                    child: MobileScanner(
+                      controller: controller!,
+                      onDetect: (capture) {
+                        final List<Barcode> barcodes = capture.barcodes;
+                        if (barcodes.isNotEmpty && !isScanned && !isProcessing) {
+                          final String? code = barcodes.first.rawValue;
+                          if (code != null) {
+                            _processDetectedCode(code);
+                          }
                         }
-                      }
-                    },
-                    errorBuilder: (context, error, child) {
-                      developer.log('Mobile scanner error: $error');
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.error_outline,
-                              color: Colors.red,
-                              size: 60,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Scanner Error: ${error.errorCode}',
-                              style: const TextStyle(
+                      },
+                      errorBuilder: (context, error, child) {
+                        developer.log('Mobile scanner error: $error');
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
                                 color: Colors.red,
-                                fontSize: 16,
+                                size: 60,
                               ),
-                            ),
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: () {
-                                Navigator.of(context).pop();
-                              },
-                              child: const Text('Go Back'),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+                              const SizedBox(height: 16),
+                              Text(
+                                'Scanner Error: ${error.errorCode}',
+                                style: const TextStyle(
+                                  color: Colors.red,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                },
+                                child: const Text('Go Back'),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   )
                 : const Center(
                     child: Text('Error initializing camera'),
                   ),
             ),
-            Padding(
+            Container(
+              width: screenWidth,
               padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 24.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,

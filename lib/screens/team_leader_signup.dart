@@ -384,28 +384,176 @@ class _TeamLeaderSignupScreenState extends State<TeamLeaderSignupScreen> {
             ? const Center(child: CircularProgressIndicator())
             : SingleChildScrollView(
               padding: const EdgeInsets.all(24.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (!_isCSVLoaded) 
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SizedBox(
-                              width: 16,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width - 48,
+                ),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (!_isCSVLoaded) 
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppTheme.accentColor,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Loading team data...',
+                                style: TextStyle(
+                                  color: AppTheme.textSecondaryColor,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      SizedBox(height: MediaQuery.of(context).size.height * 0.05),
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.group_add,
+                          color: AppTheme.primaryColor,
+                          size: 60,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        'Let\'s Start Your Hackathon Journey!',
+                        style: TextStyle(
+                          color: AppTheme.textPrimaryColor,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Enter your registered team name',
+                        style: TextStyle(
+                          color: AppTheme.textSecondaryColor,
+                          fontSize: 16,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 40),
+                      
+                      // Team name field
+                      CustomTextField(
+                        label: 'Team Name',
+                        hint: 'Enter your team name',
+                        controller: _teamNameController,
+                        prefixIcon: Icon(
+                          Icons.groups,
+                          color: AppTheme.textSecondaryColor,
+                        ),
+                        suffixIcon: _isCheckingTeamName 
+                          ? SizedBox(
                               height: 16,
+                              width: 16,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 color: AppTheme.accentColor,
                               ),
+                            ) 
+                          : _teamNameAlreadyRegistered
+                            ? Icon(
+                                Icons.error,
+                                color: Colors.red,
+                              )
+                            : _teamNameController.text.isNotEmpty && _teamNameController.text.length >= 3
+                              ? Icon(
+                                  Icons.check_circle,
+                                  color: Colors.green,
+                                )
+                              : null,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a team name';
+                          } else if (value.length < 3) {
+                            return 'Team name must be at least 3 characters';
+                          } else if (value.length > 20) {
+                            return 'Team name must be less than 20 characters';
+                          } else if (_teamNameAlreadyRegistered) {
+                            return 'This team has already been registered';
+                          }
+                          return null;
+                        },
+                      ),
+                      if (_errorMessage != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 16.0),
+                          child: Text(
+                            _errorMessage!,
+                            style: TextStyle(
+                              color: Colors.red,
+                              fontSize: 14,
                             ),
-                            const SizedBox(width: 8),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      const SizedBox(height: 40),
+                      
+                      // Next button
+                      SizedBox(
+                        width: double.infinity,
+                        child: GlassButton(
+                          text: 'Check & Proceed',
+                          onPressed: _proceedToMemberDetails,
+                          isLoading: _isLoading,
+                          icon: Icons.arrow_forward,
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Info text
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppTheme.cardColor.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppTheme.glassBorderColor),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  color: AppTheme.accentColor,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Team Authentication:',
+                                    style: TextStyle(
+                                      color: AppTheme.accentColor,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
                             Text(
-                              'Loading team data...',
+                              'Please enter your pre-registered team name exactly as provided. Only registered teams can proceed to the next step.',
                               style: TextStyle(
                                 color: AppTheme.textSecondaryColor,
                                 fontSize: 14,
@@ -414,150 +562,10 @@ class _TeamLeaderSignupScreenState extends State<TeamLeaderSignupScreen> {
                           ],
                         ),
                       ),
-                    SizedBox(height: MediaQuery.of(context).size.height * 0.05),
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.group_add,
-                        color: AppTheme.primaryColor,
-                        size: 60,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      'Let\'s Start Your Hackathon Journey!',
-                      style: TextStyle(
-                        color: AppTheme.textPrimaryColor,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Enter your registered team name',
-                      style: TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontSize: 16,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 40),
-                    
-                    // Team name field
-                    CustomTextField(
-                      label: 'Team Name',
-                      hint: 'Enter your team name',
-                      controller: _teamNameController,
-                      prefixIcon: Icon(
-                        Icons.groups,
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                      suffixIcon: _isCheckingTeamName 
-                        ? SizedBox(
-                            height: 16,
-                            width: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppTheme.accentColor,
-                            ),
-                          ) 
-                        : _teamNameAlreadyRegistered
-                          ? Icon(
-                              Icons.error,
-                              color: Colors.red,
-                            )
-                          : _teamNameController.text.isNotEmpty && _teamNameController.text.length >= 3
-                            ? Icon(
-                                Icons.check_circle,
-                                color: Colors.green,
-                              )
-                            : null,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter a team name';
-                        } else if (value.length < 3) {
-                          return 'Team name must be at least 3 characters';
-                        } else if (value.length > 20) {
-                          return 'Team name must be less than 20 characters';
-                        } else if (_teamNameAlreadyRegistered) {
-                          return 'This team has already been registered';
-                        }
-                        return null;
-                      },
-                    ),
-                    if (_errorMessage != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 16.0),
-                        child: Text(
-                          _errorMessage!,
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontSize: 14,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    const SizedBox(height: 40),
-                    
-                    // Next button
-                    GlassButton(
-                      text: 'Check & Proceed',
-                      onPressed: _proceedToMemberDetails,
-                      isLoading: _isLoading,
-                      icon: Icons.arrow_forward,
-                    ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Info text
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppTheme.cardColor.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppTheme.glassBorderColor),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.info_outline,
-                                color: AppTheme.accentColor,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Team Authentication:',
-                                  style: TextStyle(
-                                    color: AppTheme.accentColor,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Please enter your pre-registered team name exactly as provided. Only registered teams can proceed to the next step.',
-                            style: TextStyle(
-                              color: AppTheme.textSecondaryColor,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Add extra padding at the bottom to ensure scrollability
-                    const SizedBox(height: 40),
-                  ],
+                      // Add extra padding at the bottom to ensure scrollability
+                      const SizedBox(height: 40),
+                    ],
+                  ),
                 ),
               ),
             ),
