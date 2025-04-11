@@ -555,6 +555,8 @@ class _TeamLeaderSignupScreenState extends State<TeamLeaderSignupScreen> {
                         ],
                       ),
                     ),
+                    // Add extra padding at the bottom to ensure scrollability
+                    const SizedBox(height: 40),
                   ],
                 ),
               ),

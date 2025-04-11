@@ -39,7 +39,7 @@ dependencies:
   google_fonts: ^6.2.1
   qr: ^3.0.2
   firebase_core: ^2.24.2
-  path_p  rovider: ^2.1.5
+  path_provider: ^2.1.5
   mobile_scanner: ^3.5.2
   csv: ^5.0.1
   qr_flutter: ^4.1.0
