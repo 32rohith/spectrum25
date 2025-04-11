@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
 import 'dart:developer' as developer;
 import '../../models/team.dart';
 import '../../theme/app_theme.dart';
@@ -29,9 +30,12 @@ class _ProjectSubmissionTabState extends State<ProjectSubmissionTab> {
   bool _isLoading = false;
   bool _isCheckingSubmission = true;
   bool _hasTeamSubmitted = false;
+  bool _isSubmissionClosed = false;
   String? _errorMessage;
   String? _selectedTrack;
   Map<String, dynamic>? _submissionData;
+  DateTime? _submissionDeadline;
+  Timer? _deadlineTimer;
   List<String> _trackOptions = ['Open Innovation', 'Edtech', 'AgriTech and MedTech', 'IoT', 'Sustainability & Social Well Being', 'Blockchain'];
 
   @override
@@ -42,8 +46,117 @@ class _ProjectSubmissionTabState extends State<ProjectSubmissionTab> {
       developer.log('Project submission accessed by user ID: ${widget.userId}');
     }
     
-    // Check if the team has already submitted a project
-    _checkExistingSubmission();
+    // Check if the team has already submitted a project and fetch the submission deadline
+    _initializeData();
+  }
+
+  Future<void> _initializeData() async {
+    await Future.wait([
+      _checkExistingSubmission(),
+      _fetchSubmissionDeadline(),
+    ]);
+  }
+
+  Future<void> _fetchSubmissionDeadline() async {
+    try {
+      // Fetch submission deadline from the timer collection
+      final timerDoc = await _firestore.collection('timer').doc('projectSubmission').get();
+      
+      if (timerDoc.exists) {
+        final data = timerDoc.data();
+        if (data != null && data.containsKey('deadline')) {
+          final deadline = (data['deadline'] as Timestamp).toDate();
+          setState(() {
+            _submissionDeadline = deadline;
+            _isSubmissionClosed = DateTime.now().isAfter(deadline);
+          });
+          
+          developer.log('Submission deadline: $_submissionDeadline, closed: $_isSubmissionClosed');
+          
+          // Set up a timer to check the deadline periodically
+          _setupDeadlineTimer();
+        } else {
+          developer.log('No deadline field found in timer document');
+        }
+      } else {
+        developer.log('No submission deadline configured');
+      }
+    } catch (e) {
+      developer.log('Error fetching submission deadline: $e');
+    }
+  }
+
+  void _setupDeadlineTimer() {
+    // Cancel any existing timer
+    _deadlineTimer?.cancel();
+    
+    // If deadline exists and hasn't passed yet, set up a timer
+    if (_submissionDeadline != null && !_isSubmissionClosed) {
+      final now = DateTime.now();
+      if (now.isBefore(_submissionDeadline!)) {
+        // Calculate time until deadline
+        final timeUntilDeadline = _submissionDeadline!.difference(now);
+        
+        // If deadline is more than a day away, check once a day
+        // Otherwise check more frequently as it gets closer
+        Duration checkInterval;
+        if (timeUntilDeadline.inDays > 1) {
+          checkInterval = const Duration(hours: 12);
+        } else if (timeUntilDeadline.inHours > 1) {
+          checkInterval = const Duration(minutes: 30);
+        } else {
+          checkInterval = const Duration(minutes: 1);
+        }
+        
+        developer.log('Setting deadline timer to check every ${checkInterval.inMinutes} minutes');
+        
+        // Set up periodic timer
+        _deadlineTimer = Timer.periodic(checkInterval, (timer) {
+          if (DateTime.now().isAfter(_submissionDeadline!)) {
+            setState(() {
+              _isSubmissionClosed = true;
+            });
+            timer.cancel();
+            developer.log('Submission deadline reached, portal closed');
+          }
+        });
+      } else {
+        // Deadline has already passed
+        setState(() {
+          _isSubmissionClosed = true;
+        });
+      }
+    }
+    
+    // Also set up a listener for real-time updates to the deadline
+    _setupDeadlineListener();
+  }
+  
+  void _setupDeadlineListener() {
+    // Listen for changes to the deadline document in real-time
+    _firestore.collection('timer').doc('projectSubmission').snapshots().listen((docSnapshot) {
+      if (docSnapshot.exists) {
+        final data = docSnapshot.data();
+        if (data != null && data.containsKey('deadline')) {
+          final newDeadline = (data['deadline'] as Timestamp).toDate();
+          
+          // Only update if the deadline has changed
+          if (_submissionDeadline == null || !_submissionDeadline!.isAtSameMomentAs(newDeadline)) {
+            setState(() {
+              _submissionDeadline = newDeadline;
+              _isSubmissionClosed = DateTime.now().isAfter(newDeadline);
+            });
+            
+            developer.log('Deadline updated: $_submissionDeadline, closed: $_isSubmissionClosed');
+            
+            // Reset the timer with the new deadline
+            _setupDeadlineTimer();
+          }
+        }
+      }
+    }, onError: (error) {
+      developer.log('Error in deadline listener: $error');
+    });
   }
 
   Future<void> _checkExistingSubmission() async {
@@ -99,10 +212,19 @@ class _ProjectSubmissionTabState extends State<ProjectSubmissionTab> {
     _descriptionController.dispose();
     _repoUrlController.dispose();
     _demoUrlController.dispose();
+    _deadlineTimer?.cancel();
     super.dispose();
   }
 
   Future<void> _submitProject() async {
+    // Check if submission is closed
+    if (_isSubmissionClosed) {
+      setState(() {
+        _errorMessage = 'Submission period has ended. Project submissions are now closed.';
+      });
+      return;
+    }
+
     if (_formKey.currentState!.validate()) {
       // Validate track selection
       if (_selectedTrack == null) {
@@ -130,6 +252,16 @@ class _ProjectSubmissionTabState extends State<ProjectSubmissionTab> {
             _isLoading = false;
             _errorMessage = 'Your team has already submitted a project. Only one submission per team is allowed.';
             _hasTeamSubmitted = true;
+          });
+          return;
+        }
+        
+        // Check deadline one more time before saving
+        await _fetchSubmissionDeadline();
+        if (_isSubmissionClosed) {
+          setState(() {
+            _isLoading = false;
+            _errorMessage = 'Submission period has ended. Project submissions are now closed.';
           });
           return;
         }
@@ -222,14 +354,140 @@ class _ProjectSubmissionTabState extends State<ProjectSubmissionTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Deadline banner if available
+            if (_submissionDeadline != null) _buildDeadlineBanner(),
+            
+            // Submission closed message
+            if (_isSubmissionClosed && !_hasTeamSubmitted) _buildSubmissionClosedMessage(),
+            
             // Project Submission Status
-            _hasTeamSubmitted || widget.team.projectSubmissionUrl != null
-                ? _buildSubmittedProject()
-                : _buildSubmissionForm(),
+            if (_hasTeamSubmitted)
+              _buildSubmittedProject()
+            else if (!_isSubmissionClosed)
+              _buildSubmissionForm(),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildDeadlineBanner() {
+    final now = DateTime.now();
+    final isNearDeadline = _submissionDeadline != null && 
+                         now.isBefore(_submissionDeadline!) && 
+                         now.add(const Duration(hours: 12)).isAfter(_submissionDeadline!);
+    
+    return GlassCard(
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Row(
+          children: [
+            Icon(
+              _isSubmissionClosed ? Icons.timer_off : (isNearDeadline ? Icons.alarm : Icons.access_time),
+              color: _isSubmissionClosed ? Colors.red : (isNearDeadline ? Colors.orange : AppTheme.accentColor),
+              size: 24,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _isSubmissionClosed 
+                      ? 'Submission Closed' 
+                      : (isNearDeadline ? 'Deadline Approaching' : 'Submission Deadline'),
+                    style: TextStyle(
+                      color: _isSubmissionClosed ? Colors.red : (isNearDeadline ? Colors.orange : AppTheme.textPrimaryColor),
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _isSubmissionClosed
+                      ? 'The submission period ended on ${_formatDateTime(_submissionDeadline!)}'
+                      : 'Submissions close on ${_formatDateTime(_submissionDeadline!)}',
+                    style: TextStyle(
+                      color: AppTheme.textSecondaryColor,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_isSubmissionClosed && !_hasTeamSubmitted)
+              const Icon(Icons.lock, color: Colors.red, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubmissionClosedMessage() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 24.0, bottom: 12.0),
+      child: GlassCard(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.event_busy,
+                color: Colors.red,
+                size: 48,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Submission Period Has Ended',
+                style: TextStyle(
+                  color: AppTheme.textPrimaryColor,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Project submissions are now closed. We\'re sorry, but the deadline has passed and new submissions are no longer being accepted.',
+                style: TextStyle(
+                  color: AppTheme.textSecondaryColor,
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Submissions closed on: ${_formatDateTime(_submissionDeadline!)}',
+                style: TextStyle(
+                  color: AppTheme.textSecondaryColor,
+                  fontSize: 14,
+                  fontStyle: FontStyle.italic,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    // Format: "Apr 12, 2023 at 11:59 PM"
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final month = months[dateTime.month - 1];
+    final day = dateTime.day;
+    final year = dateTime.year;
+    
+    // Format hours for 12-hour clock with AM/PM
+    int hour = dateTime.hour;
+    final period = hour >= 12 ? 'PM' : 'AM';
+    hour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+    
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    
+    return '$month $day, $year at $hour:$minute $period';
   }
 
   Widget _buildSubmittedProject() {

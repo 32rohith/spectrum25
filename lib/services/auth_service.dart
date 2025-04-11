@@ -28,19 +28,36 @@ class AuthService {
   static const String _ocPhoneKey = 'oc_phone';
   
   // Generate a unique username and password
-  Map<String, String> _generateCredentials(String name, String role) {
-    final random = Random();
+  Map<String, String> _generateCredentials(String name, String role, [String? phone = '']) {
     // Get first 4 letters of name (or use full name if less than 4 chars)
     final namePrefix = name.length > 4 ? name.substring(0, 4).toLowerCase() : name.toLowerCase();
     
-    // Generate 4 random digits
-    final fourDigits = random.nextInt(9000) + 1000; // Ensures 4 digits
+    // Extract last 4 digits of phone number, or use random if not available
+    String lastDigits;
+    if (phone != null && phone.isNotEmpty) {
+      // Remove non-digit characters from phone number
+      final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
+      
+      // Get last 4 digits, or all digits if less than 4
+      if (cleanPhone.length >= 4) {
+        lastDigits = cleanPhone.substring(cleanPhone.length - 4);
+      } else if (cleanPhone.isNotEmpty) {
+        lastDigits = cleanPhone;
+      } else {
+        // Fallback to random if no digits in phone
+        lastDigits = (Random().nextInt(9000) + 1000).toString();
+      }
+    } else {
+      // Fallback to random if no phone number
+      final random = Random();
+      lastDigits = (random.nextInt(9000) + 1000).toString();
+    }
     
-    // Create username: first4_digits
-    final username = '${namePrefix}_$fourDigits';
+    // Create username: name_lastdigits
+    final username = '${namePrefix}_$lastDigits';
     
-    // Create password: first4@digits
-    final password = '$namePrefix@$fourDigits';
+    // Create password: name@lastdigits
+    final password = '$namePrefix@$lastDigits';
     
     return {
       'username': username,
@@ -106,7 +123,7 @@ class AuthService {
       
       // If team doesn't exist or is already verified, proceed with normal registration
       // Generate team credentials
-      final teamCredentials = _generateCredentials(teamName, 'team');
+      final teamCredentials = _generateCredentials(teamName, 'team', leader.phone);
       final teamUsername = teamCredentials['username']!;
       final teamPassword = teamCredentials['password']!;
       
@@ -124,7 +141,7 @@ class AuthService {
       developer.log('Team account created with ID: $teamId');
       
       // Generate leader credentials with specific role
-      final leaderCredentials = _generateCredentials(leader.name, 'leader');
+      final leaderCredentials = _generateCredentials(leader.name, 'leader', leader.phone);
       final leaderUsername = leaderCredentials['username']!;
       final leaderPassword = leaderCredentials['password']!;
       final leaderEmail = '$leaderUsername@hackathon.app';
@@ -178,7 +195,7 @@ class AuthService {
         developer.log('Processing member ${i+1}: ${member.name}');
         
         // Generate member credentials with specific role
-        final memberCredentials = _generateCredentials(member.name, 'member');
+        final memberCredentials = _generateCredentials(member.name, 'member', member.phone);
         final memberUsername = memberCredentials['username']!;
         final memberPassword = memberCredentials['password']!;
         final memberEmail = '$memberUsername@hackathon.app';

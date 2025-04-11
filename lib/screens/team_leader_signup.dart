@@ -4,68 +4,62 @@ import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import 'team_member_details.dart';
 import 'package:flutter/services.dart';
-import 'package:csv/csv.dart';
 import 'dart:developer' as developer;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import '../models/team.dart';
 import 'team_credentials_screen.dart';
+import '../services/team_service.dart';
 
 class TeamLeaderSignupScreen extends StatefulWidget {
   const TeamLeaderSignupScreen({super.key});
 
   @override
-  _TeamLeaderSignupScreenState createState() => _TeamLeaderSignupScreenState();
+  State<TeamLeaderSignupScreen> createState() => _TeamLeaderSignupScreenState();
 }
 
 class _TeamLeaderSignupScreenState extends State<TeamLeaderSignupScreen> {
   final _teamNameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  bool _isLoading = false;
-  List<List<dynamic>> _teamsData = [];
-  String? _errorMessage;
-  bool _isCSVLoaded = false;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  Timer? _debounce;
+  final TeamService _teamService = TeamService();
+  bool _isLoading = false;
+  String? _errorMessage;
   bool _isCheckingTeamName = false;
   bool _teamNameAlreadyRegistered = false;
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
-    _loadCSV();
-    _setupTeamNameListener();
+    _teamNameController.addListener(_onTeamNameChanged);
   }
 
-  void _setupTeamNameListener() {
-    _teamNameController.addListener(() {
-      if (_debounce?.isActive ?? false) _debounce!.cancel();
-      _debounce = Timer(const Duration(milliseconds: 800), () {
-        final teamName = _teamNameController.text.trim();
-        if (teamName.length >= 3) {
-          _checkTeamRegistrationStatus(teamName);
-        } else {
-          setState(() {
-            _teamNameAlreadyRegistered = false;
-          });
-        }
-      });
+  void _onTeamNameChanged() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      // Only perform check if team name has reasonable length
+      if (_teamNameController.text.length > 2) {
+        _checkTeamNameExistence(_teamNameController.text);
+      }
     });
   }
 
-  Future<void> _checkTeamRegistrationStatus(String teamName) async {
-    if (teamName.isEmpty) return;
-    
+  Future<void> _checkTeamNameExistence(String teamName) async {
     setState(() {
       _isCheckingTeamName = true;
+      _teamNameAlreadyRegistered = false;
       _errorMessage = null;
     });
     
     try {
+      // Check if team name exists in Firebase
       final isRegistered = await _isTeamRegistered(teamName);
+      
       setState(() {
-        _teamNameAlreadyRegistered = isRegistered;
         _isCheckingTeamName = false;
+        _teamNameAlreadyRegistered = isRegistered;
+        
         if (isRegistered) {
           _errorMessage = 'This team has already been registered. Each team can only register once.';
         }
@@ -78,46 +72,25 @@ class _TeamLeaderSignupScreenState extends State<TeamLeaderSignupScreen> {
     }
   }
 
-  Future<void> _loadCSV() async {
-    try {
-      final csvString = await rootBundle.loadString('assets/test.csv');
-      setState(() {
-        _teamsData = const CsvToListConverter().convert(csvString);
-        _isCSVLoaded = true;
-        developer.log('CSV loaded successfully: $_teamsData');
-      });
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Failed to load teams data. Please try again later.';
-        developer.log('Error loading CSV: $e');
-      });
-    }
-  }
-
-  bool _teamExists(String teamName) {
+  // Check if team name exists in the teamNames collection
+  Future<bool> _teamExists(String teamName) async {
     developer.log('Checking if team exists: $teamName');
-    developer.log('Teams data: $_teamsData');
     
-    if (_teamsData.isEmpty) {
-      developer.log('Teams data is empty');
+    if (teamName.trim().isEmpty) {
+      developer.log('Team name is empty');
       return false;
     }
     
-    // Skip header row and check if team name exists
-    for (int i = 1; i < _teamsData.length; i++) {
-      developer.log('Checking team: ${_teamsData[i]}');
-      if (_teamsData[i].isNotEmpty) {
-        final csvTeamName = _teamsData[i][0].toString().trim();
-        developer.log('Comparing: "$csvTeamName" with "$teamName"');
-        
-        if (csvTeamName.toLowerCase() == teamName.toLowerCase()) {
-          developer.log('Team found!');
-          return true;
-        }
-      }
+    // Use TeamService to check if team exists in Firestore
+    final exists = await _teamService.teamNameExists(teamName);
+    
+    if (exists) {
+      developer.log('Team found in teamNames collection!');
+    } else {
+      developer.log('Team not found in teamNames collection');
     }
-    developer.log('Team not found');
-    return false;
+    
+    return exists;
   }
 
   // Check if team is already registered in Firebase
@@ -239,18 +212,6 @@ class _TeamLeaderSignupScreenState extends State<TeamLeaderSignupScreen> {
       _errorMessage = null;
     });
 
-    if (!_isCSVLoaded) {
-      // If CSV is not loaded yet, try loading it again
-      await _loadCSV();
-      if (!_isCSVLoaded) {
-        setState(() {
-          _errorMessage = 'Still loading team data. Please try again in a moment.';
-          _isLoading = false;
-        });
-        return;
-      }
-    }
-
     if (_formKey.currentState!.validate()) {
       final teamName = _teamNameController.text.trim();
       
@@ -300,8 +261,11 @@ class _TeamLeaderSignupScreenState extends State<TeamLeaderSignupScreen> {
         }
       }
       
+      // Check if team exists in approved teams list
+      final teamExists = await _teamExists(teamName);
+      
       // For testing, allow "Test" team to always pass
-      if (teamName.toLowerCase() == "test" || _teamExists(teamName)) {
+      if (teamName.toLowerCase() == "test" || teamExists) {
         // Navigate to team member details screen
         Navigator.push(
           context,
@@ -393,31 +357,6 @@ class _TeamLeaderSignupScreenState extends State<TeamLeaderSignupScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (!_isCSVLoaded) 
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AppTheme.accentColor,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Loading team data...',
-                                style: TextStyle(
-                                  color: AppTheme.textSecondaryColor,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
                       SizedBox(height: MediaQuery.of(context).size.height * 0.05),
                       Container(
                         padding: const EdgeInsets.all(20),

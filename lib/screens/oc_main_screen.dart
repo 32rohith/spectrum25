@@ -7,6 +7,7 @@ import 'welcome_screen.dart';
 import 'tabs/oc_checkin_tab.dart';
 import 'tabs/oc_food_tab.dart';
 import 'tabs/oc_teams_tab.dart';
+import 'tabs/oc_settings_tab.dart';
 
 class OCMainScreen extends StatefulWidget {
   const OCMainScreen({super.key});
@@ -27,12 +28,14 @@ class _OCMainScreenState extends State<OCMainScreen> {
       const OCCheckinTab(),
       const OCFoodTab(),
       const OCTeamsTab(),
+      const OCSettingsTab(),
     ];
     
     _tabTitles = [
       'Check-in',
       'Food',
       'Teams',
+      'Settings',
     ];
   }
 
@@ -165,6 +168,10 @@ class _OCMainScreenState extends State<OCMainScreen> {
             BottomNavigationBarItem(
               icon: Icon(Icons.people),
               label: 'Teams',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.settings),
+              label: 'Settings',
             ),
           ],
         ),

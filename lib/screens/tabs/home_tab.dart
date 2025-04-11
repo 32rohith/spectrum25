@@ -267,12 +267,12 @@ class _HomeTabState extends State<HomeTab> {
                         color: AppTheme.textPrimaryColor,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
             
             const SizedBox(height: 16),
             
@@ -280,13 +280,13 @@ class _HomeTabState extends State<HomeTab> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
+            Text(
                   'Event Timeline',
-                  style: TextStyle(
-                    color: AppTheme.textPrimaryColor,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: TextStyle(
+                color: AppTheme.textPrimaryColor,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
                 ),
                 TextButton.icon(
                   onPressed: () {
@@ -355,7 +355,7 @@ class _HomeTabState extends State<HomeTab> {
                   ? AppTheme.accentColor
                   : isPast
                       ? Colors.grey
-                      : AppTheme.textSecondaryColor,
+                  : AppTheme.textSecondaryColor,
               fontSize: 14,
               fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
             ),
@@ -371,14 +371,14 @@ class _HomeTabState extends State<HomeTab> {
                     ? AppTheme.accentColor
                     : isPast
                         ? Colors.grey.withOpacity(0.3)
-                        : AppTheme.cardColor,
+                    : AppTheme.cardColor,
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: isActive
                       ? AppTheme.accentColor
                       : isPast
                           ? Colors.grey
-                          : AppTheme.glassBorderColor,
+                      : AppTheme.glassBorderColor,
                   width: 2,
                 ),
               ),
@@ -391,10 +391,10 @@ class _HomeTabState extends State<HomeTab> {
                   : isPast
                       ? const Icon(
                           Icons.check,
-                          color: Colors.white,
-                          size: 12,
-                        )
-                      : null,
+                      color: Colors.white,
+                      size: 12,
+                    )
+                  : null,
             ),
             if (!isLast)
               Container(
@@ -403,8 +403,8 @@ class _HomeTabState extends State<HomeTab> {
                 color: isPast
                     ? Colors.grey.withOpacity(0.5)
                     : isActive 
-                        ? AppTheme.accentColor.withOpacity(0.5)
-                        : AppTheme.glassBorderColor,
+                    ? AppTheme.accentColor.withOpacity(0.5)
+                    : AppTheme.glassBorderColor,
               ),
           ],
         ),
@@ -418,16 +418,16 @@ class _HomeTabState extends State<HomeTab> {
                   Expanded(
                     child: Text(
                       event.title,
-                      style: TextStyle(
-                        color: isActive
-                            ? AppTheme.textPrimaryColor
+                style: TextStyle(
+                  color: isActive
+                      ? AppTheme.textPrimaryColor
                             : isPast
                                 ? Colors.grey
-                                : AppTheme.textSecondaryColor,
-                        fontSize: 16,
-                        fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-                      ),
-                    ),
+                      : AppTheme.textSecondaryColor,
+                  fontSize: 16,
+                  fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -451,14 +451,14 @@ class _HomeTabState extends State<HomeTab> {
                 ],
               ),
               if (event.description.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
+              const SizedBox(height: 4),
+              Text(
                   event.description,
-                  style: TextStyle(
+                style: TextStyle(
                     color: isPast ? Colors.grey : AppTheme.textSecondaryColor,
-                    fontSize: 14,
-                  ),
+                  fontSize: 14,
                 ),
+              ),
               ],
               if (isActive) ...[
                 const SizedBox(height: 8),
