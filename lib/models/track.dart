@@ -2,9 +2,9 @@ enum Track {
   openInnovation('Open Innovation'),
   edtech('Edtech'),
   agriTechAndMedTech('AgriTech and MedTech'),
-  blockchain('Blockchain'),
   iot('IoT'),
-  sustainability('Sustainability & Social Well Being');
+  sustainability('Sustainability & Social Well Being'),
+  blockchain('Blockchain');
 
   final String displayName;
   const Track(this.displayName);
