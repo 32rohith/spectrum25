@@ -166,9 +166,11 @@ class MealService {
     try {
       final mealsSnapshot = await _firestore.collection('meals').get();
       
-      return mealsSnapshot.docs.map((doc) {
-        return Meal.fromJson(doc.data());
-      }).toList();
+      // Filter out the test meal
+      return mealsSnapshot.docs
+        .map((doc) => Meal.fromJson(doc.data()))
+        .where((meal) => meal.id != 'test_meal')
+        .toList();
     } catch (e) {
       developer.log('Error getting meals: $e');
       throw Exception('Failed to get meals: $e');
@@ -183,6 +185,8 @@ class MealService {
       
       for (var doc in mealsSnapshot.docs) {
         final meal = Meal.fromJson(doc.data());
+        // Skip test meals
+        if (meal.id == 'test_meal') continue;
         if (now.isAfter(meal.startTime) && now.isBefore(meal.endTime)) {
           return meal;
         }
