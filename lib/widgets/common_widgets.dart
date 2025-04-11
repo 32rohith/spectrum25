@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../utils/glass_morphism.dart';
+import '../services/auth_service.dart';
+import '../screens/welcome_screen.dart';
 
 class GlassButton extends StatelessWidget {
   final String text;
@@ -230,6 +232,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final List<Widget>? actions;
   final bool centerTitle;
   final double height;
+  final bool showLogoutButton;
 
   const CustomAppBar({
     super.key,
@@ -237,13 +240,75 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.actions,
     this.centerTitle = true,
     this.height = kToolbarHeight,
+    this.showLogoutButton = true,
   });
 
   @override
   Widget build(BuildContext context) {
+    List<Widget> allActions = [];
+    
+    // Add custom actions if provided
+    if (actions != null) {
+      allActions.addAll(actions!);
+    }
+    
+    // Add logout button if enabled
+    if (showLogoutButton) {
+      allActions.add(
+        IconButton(
+          icon: const Icon(Icons.logout, color: Colors.white),
+          onPressed: () async {
+            // Show confirmation dialog
+            final shouldLogout = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                backgroundColor: AppTheme.cardColor,
+                title: Text('Logout', style: TextStyle(color: AppTheme.textPrimaryColor)),
+                content: Text(
+                  'Are you sure you want to log out?',
+                  style: TextStyle(color: AppTheme.textSecondaryColor),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: Text('Cancel', style: TextStyle(color: AppTheme.textSecondaryColor)),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: Text('Logout', style: TextStyle(color: AppTheme.primaryColor)),
+                  ),
+                ],
+              ),
+            ) ?? false;
+            
+            if (shouldLogout) {
+              // Import needed at the top of the file
+              final authService = AuthService();
+              await authService.signOut();
+              
+              // Try named route first
+              try {
+                if (context.mounted) {
+                  Navigator.of(context).pushNamedAndRemoveUntil('/welcome', (route) => false);
+                }
+              } catch (e) {
+                // Fallback to direct navigation
+                if (context.mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => const WelcomeScreen()),
+                    (route) => false,
+                  );
+                }
+              }
+            }
+          },
+        ),
+      );
+    }
+
     return GlassMorphismPresets.appBar(
       title: title,
-      actions: actions,
+      actions: allActions,
       height: height,
     );
   }

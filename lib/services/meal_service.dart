@@ -23,10 +23,6 @@ class MealService {
         return;
       }
       
-      // Calculate times for test meal
-      final now = DateTime.now();
-      final oneHourFromNow = now.add(Duration(hours: 1));
-      
       // Define the hackathon meal schedule
       final meals = [
         Meal(
@@ -50,13 +46,6 @@ class MealService {
           endTime: DateTime(2025, 4, 12, 10, 30),  // April 12, 2025, 10:30 AM
           isActive: false,
         ),
-        Meal(
-          id: 'test_meal',
-          name: 'Test Meal (1 hour)',
-          startTime: now,
-          endTime: oneHourFromNow,
-          isActive: true,
-        ),
       ];
       
       // Add meals to database
@@ -66,7 +55,7 @@ class MealService {
       }
       
       await batch.commit();
-      developer.log('Meals initialized successfully with test meal that lasts 1 hour');
+      developer.log('Meals initialized successfully');
     } catch (e) {
       developer.log('Error initializing meals: $e');
       throw Exception('Failed to initialize meals: $e');
@@ -267,9 +256,6 @@ class MealService {
               case 'dinner':
                 hasConsumed = memberData['isDinnerConsumed'] == true;
                 break;
-              case 'test_meal':
-                hasConsumed = memberData['isTestMealConsumed'] == true;
-                break;
             }
             
             if (hasConsumed) {
@@ -406,9 +392,6 @@ class MealService {
             case 'dinner':
               hasConsumed = memberData['isDinnerConsumed'] == true;
               break;
-            case 'test_meal':
-              hasConsumed = memberData['isTestMealConsumed'] == true;
-              break;
           }
           
           if (hasConsumed) {
@@ -506,7 +489,6 @@ class MealService {
     bool isBreakfast = false;
     bool isLunch = false;
     bool isDinner = false;
-    bool isTest = false;
     
     switch (mealId) {
       case 'breakfast':
@@ -518,9 +500,6 @@ class MealService {
       case 'dinner':
         isDinner = true;
         break;
-      case 'test_meal':
-        isTest = true;
-        break;
     }
     
     // Update member document with the corresponding meal flag
@@ -528,7 +507,6 @@ class MealService {
       if (isBreakfast) 'isBreakfastConsumed': true,
       if (isLunch) 'isLunchConsumed': true,
       if (isDinner) 'isDinnerConsumed': true,
-      if (isTest) 'isTestMealConsumed': true,
     });
   }
   
@@ -561,7 +539,6 @@ class MealService {
           'isBreakfastConsumed': false,
           'isLunchConsumed': false,
           'isDinnerConsumed': false,
-          'isTestMealConsumed': false,
         }, SetOptions(merge: true));
         
         developer.log('Created/updated member document with QR secret for: $memberName');
@@ -802,7 +779,6 @@ class MealService {
       bool isBreakfast = false;
       bool isLunch = false;
       bool isDinner = false;
-      bool isTest = false;
       
       switch (activeMeal.id) {
         case 'breakfast':
@@ -814,17 +790,13 @@ class MealService {
         case 'dinner':
           isDinner = true;
           break;
-        case 'test_meal':
-          isTest = true;
-          break;
       }
       
       // Update member document
       await updateMemberDocument(
         memberId,
-        isTest: isTest,
-        isLunch: isLunch,
         isBreakfast: isBreakfast,
+        isLunch: isLunch,
         isDinner: isDinner
       );
       
@@ -850,7 +822,6 @@ class MealService {
     bool? isBreakfast,
     bool? isLunch,
     bool? isDinner,
-    bool? isTest,
     String? qrSecret,
   }) async {
     try {
@@ -860,7 +831,6 @@ class MealService {
       if (isBreakfast != null) updateData['isBreakfastConsumed'] = isBreakfast;
       if (isLunch != null) updateData['isLunchConsumed'] = isLunch;
       if (isDinner != null) updateData['isDinnerConsumed'] = isDinner;
-      if (isTest != null) updateData['isTestMealConsumed'] = isTest;
       if (qrSecret != null) updateData['qrSecret'] = qrSecret;
       
       await memberRef.update(updateData);
@@ -1005,7 +975,6 @@ class MealService {
               'isBreakfastConsumed': false,
               'isLunchConsumed': false,
               'isDinnerConsumed': false,
-              'isTestMealConsumed': false,
               'device': 'iOS',
               'email': email,
               'createdAt': FieldValue.serverTimestamp(),

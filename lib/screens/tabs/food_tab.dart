@@ -333,7 +333,6 @@ class _FoodTabState extends State<FoodTab> {
           'isBreakfastConsumed': false,
           'isLunchConsumed': false,
           'isDinnerConsumed': false,
-          'isTestMealConsumed': false,
           'createdAt': FieldValue.serverTimestamp(),
           'device': Platform.isIOS ? 'iOS' : 'Android',
           'email': '', // Will be populated if iOS user
@@ -429,8 +428,6 @@ class _FoodTabState extends State<FoodTab> {
         return _memberData['isLunchConsumed'] == true;
       case 'dinner':
         return _memberData['isDinnerConsumed'] == true;
-      case 'test_meal':
-        return _memberData['isTestMealConsumed'] == true;
       default:
         return false;
     }
@@ -588,107 +585,110 @@ class _FoodTabState extends State<FoodTab> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: const CustomAppBar(
+        title: 'Food',
+      ),
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Your QR Code (Always visible)
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Your QR Code',
-                              style: TextStyle(
-                                color: AppTheme.textPrimaryColor,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            IconButton(
-                              icon: Icon(Icons.refresh),
-                              tooltip: 'Refresh meal status',
-                              onPressed: _refreshMealStatus,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Show this QR code to the food counter staff to get your meal.',
-                          style: TextStyle(
-                            color: AppTheme.textSecondaryColor,
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Center(
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(8),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  spreadRadius: 1,
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
+            : SingleChildScrollView(
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Your QR Code (Always visible)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Your QR Code',
+                                style: TextStyle(
+                                  color: AppTheme.textPrimaryColor,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
                                 ),
-                              ],
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.refresh),
+                                tooltip: 'Refresh meal status',
+                                onPressed: _refreshMealStatus,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Show this QR code to the food counter staff to get your meal.',
+                            style: TextStyle(
+                              color: AppTheme.textSecondaryColor,
+                              fontSize: 14,
                             ),
-                            child: Column(
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: Text(
-                                    '$_memberName - $_teamName',
-                                    style: const TextStyle(
-                                      color: Colors.black87,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
+                          ),
+                          const SizedBox(height: 16),
+                          Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.1),
+                                    spreadRadius: 1,
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Text(
+                                      '$_memberName - $_teamName',
+                                      style: const TextStyle(
+                                        color: Colors.black87,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                  QrImageView(
+                                    data: _qrData,
+                                    version: QrVersions.auto,
+                                    size: 200,
+                                    backgroundColor: Colors.white,
+                                    errorStateBuilder: (context, error) {
+                                      return const Center(
+                                        child: Text(
+                                          'Error generating QR code',
+                                          style: TextStyle(color: Colors.red),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'This is your permanent meal QR code',
+                                    style: TextStyle(
+                                      color: AppTheme.textSecondaryColor,
+                                      fontSize: 12,
                                     ),
                                     textAlign: TextAlign.center,
                                   ),
-                                ),
-                                QrImageView(
-                                  data: _qrData,
-                                  version: QrVersions.auto,
-                                  size: 200,
-                                  backgroundColor: Colors.white,
-                                  errorStateBuilder: (context, error) {
-                                    return const Center(
-                                      child: Text(
-                                        'Error generating QR code',
-                                        style: TextStyle(color: Colors.red),
-                                      ),
-                                    );
-                                  },
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'This is your permanent meal QR code',
-                                  style: TextStyle(
-                                    color: AppTheme.textSecondaryColor,
-                                    fontSize: 12,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  
-                  // Active and All Meals
-                  Expanded(
-                    child: Padding(
+                    
+                    // Active and All Meals
+                    Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -722,22 +722,22 @@ class _FoodTabState extends State<FoodTab> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          Expanded(
-                            child: ListView.builder(
-                              itemCount: _meals.length,
-                              itemBuilder: (context, index) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 16),
-                                  child: _buildMealCard(_meals[index]),
-                                );
-                              },
-                            ),
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: NeverScrollableScrollPhysics(),
+                            itemCount: _meals.length,
+                            itemBuilder: (context, index) {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: _buildMealCard(_meals[index]),
+                              );
+                            },
                           ),
                         ],
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
       ),
     );

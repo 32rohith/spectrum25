@@ -32,7 +32,7 @@ class _ProjectSubmissionTabState extends State<ProjectSubmissionTab> {
   String? _errorMessage;
   String? _selectedTrack;
   Map<String, dynamic>? _submissionData;
-  List<String> _trackOptions = ['AI & ML', 'Web3 & Blockchain', 'AR/VR', 'FinTech', 'Healthcare', 'Open Innovation'];
+  List<String> _trackOptions = ['Open Innovation', 'Edtech', 'AgriTech and MedTech', 'IoT', 'Sustainability & Social Well Being', 'Blockchain'];
 
   @override
   void initState() {
