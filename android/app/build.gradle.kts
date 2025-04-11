@@ -32,19 +32,19 @@ android {
         multiDexEnabled = true
     }
 
-    signingConfigs {
+signingConfigs {
         create("release") {
-            val storeFilePath = project.findProperty("MYAPP_RELEASE_STORE_FILE") as String
-            storeFile = file(storeFilePath)
-            storePassword = project.findProperty("MYAPP_RELEASE_STORE_PASSWORD") as String
-            keyAlias = project.findProperty("MYAPP_RELEASE_KEY_ALIAS") as String
-            keyPassword = project.findProperty("MYAPP_RELEASE_KEY_PASSWORD") as String
+            storeFile = file("my-release-key.keystore")
+            storePassword = "android"
+            keyAlias = "my-key-alias"
+            keyPassword = "android"
         }
     }
-   buildTypes {
+
+buildTypes {
     getByName("release") {
-        isMinifyEnabled = false
-        isShrinkResources = false
+        isMinifyEnabled = true
+        isShrinkResources = true
         signingConfig = signingConfigs.getByName("release")
         proguardFiles(
             getDefaultProguardFile("proguard-android-optimize.txt"),
