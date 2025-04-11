@@ -163,6 +163,10 @@ class _OCTeamsTabState extends State<OCTeamsTab> {
       builder: (context) => TeamDetailsDialog(
         teamId: teamId,
         teamName: teamName,
+        onTeamUpdated: () {
+          // Refresh teams list when a team member's verification status changes
+          _loadTeams();
+        },
       ),
     );
   }
@@ -301,6 +305,27 @@ class _OCTeamsTabState extends State<OCTeamsTab> {
                                 }
                               }
                               
+                              // Get team verification status
+                              final bool isTeamVerified = team['isVerified'] ?? false;
+                              
+                              // Calculate check-in statistics
+                              int totalMembers = 1 + members.length; // Leader + members
+                              int verifiedCount = 0;
+                              
+                              // Only count verified members if the team itself is verified
+                              if (isTeamVerified) {
+                                // Count leader
+                                if (team['leader']?['isVerified'] == true) {
+                                  verifiedCount++;
+                                }
+                                
+                                // Count members
+                                verifiedCount += members.where((m) => m['isVerified'] == true).length;
+                              }
+                              
+                              // Calculate percentage
+                              double checkinPercentage = totalMembers > 0 ? verifiedCount / totalMembers : 0;
+                              
                               return Container(
                                 margin: const EdgeInsets.only(bottom: 8),
                         child: GlassCard(
@@ -357,12 +382,54 @@ class _OCTeamsTabState extends State<OCTeamsTab> {
                                           ),
                                           const SizedBox(height: 4),
                                       Text(
-                                            'Members: ${(team['members']?.length ?? 0) + 1} (${(team['leader']?['isVerified'] == true ? 1 : 0) + ((team['members'] as List?)?.where((m) => m['isVerified'] == true).length ?? 0)} checked in)',
+                                            'Members: $totalMembers (${isTeamVerified ? verifiedCount : 0} checked in)',
                                         style: TextStyle(
                                           color: AppTheme.textSecondaryColor,
                                             ),
                                           ),
-                                          const SizedBox(height: 12),
+                                          // Add progress bar for check-in status
+                                          const SizedBox(height: 10),
+                                          Stack(
+                                            children: [
+                                              // Background
+                                              Container(
+                                                height: 8,
+                                                width: double.infinity,
+                                                decoration: BoxDecoration(
+                                                  color: Colors.grey.withOpacity(0.3),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                              ),
+                                              // Progress - only show progress for verified teams
+                                              if (isTeamVerified)
+                                                Container(
+                                                  height: 8,
+                                                  width: MediaQuery.of(context).size.width * 0.8 * checkinPercentage,
+                                                  decoration: BoxDecoration(
+                                                    gradient: LinearGradient(
+                                                      colors: [
+                                                        checkinPercentage < 0.5 ? Colors.red : Colors.orange,
+                                                        checkinPercentage == 1.0 ? Colors.green : 
+                                                          (checkinPercentage > 0.7 ? Colors.lightGreen : Colors.yellow),
+                                                      ],
+                                                    ),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            isTeamVerified 
+                                                ? 'Check-in Progress: ${(checkinPercentage * 100).toInt()}%'
+                                                : 'Team not verified - 0% checked in',
+                                            style: TextStyle(
+                                              color: isTeamVerified ? AppTheme.accentColor : Colors.red,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
                                           Text(
                                             'Tap to view member details',
                                             style: TextStyle(
@@ -405,6 +472,15 @@ class _OCTeamsTabState extends State<OCTeamsTab> {
       return Colors.red.withOpacity(0.2);
     }
 
+    // Get overall team verification status
+    bool isTeamVerified = team['isVerified'] ?? false;
+    
+    // If team is not verified, always show red regardless of individual member status
+    if (!isTeamVerified) {
+      return Colors.red.withOpacity(0.2); // Not verified
+    }
+    
+    // If team is verified, calculate check-in progress for display purposes
     int verifiedCount = 0;
     int totalCount = 1; // Leader
     
@@ -427,12 +503,18 @@ class _OCTeamsTabState extends State<OCTeamsTab> {
       }
     }
     
-    if (verifiedCount == totalCount && totalCount > 0) {
-      return Colors.green.withOpacity(0.2); // All checked in
-    } else if (verifiedCount > 0) {
-      return Colors.orange.withOpacity(0.2); // Some checked in
+    // Calculate check-in percentage
+    double checkinPercentage = totalCount > 0 ? verifiedCount / totalCount : 0;
+    
+    // For verified teams, show color based on individual member status
+    if (checkinPercentage == 1.0) {
+      return Colors.green.withOpacity(0.2); // All individual members checked in
+    } else if (checkinPercentage >= 0.7) {
+      return Colors.lightGreen.withOpacity(0.2); // Mostly checked in (≥70%)
+    } else if (checkinPercentage >= 0.3) {
+      return Colors.orange.withOpacity(0.2); // Partially checked in (≥30%)
     } else {
-      return Colors.red.withOpacity(0.2); // None checked in
+      return Colors.deepOrange.withOpacity(0.2); // Few checked in (<30%)
     }
   }
   
@@ -447,6 +529,15 @@ class _OCTeamsTabState extends State<OCTeamsTab> {
       return 'Not Signed Up';
     }
 
+    // Get overall team verification status
+    bool isTeamVerified = team['isVerified'] ?? false;
+    
+    // If team is not verified, always show "Not Checked In" regardless of individual member status
+    if (!isTeamVerified) {
+      return 'Not Verified';
+    }
+    
+    // If team is verified, calculate check-in progress for display purposes
     int verifiedCount = 0;
     int totalCount = 1; // Leader
     
@@ -469,12 +560,15 @@ class _OCTeamsTabState extends State<OCTeamsTab> {
       }
     }
     
-    if (verifiedCount == totalCount && totalCount > 0) {
-      return 'Checked In';
-    } else if (verifiedCount > 0) {
-      return 'Started Check-in';
+    // Calculate check-in percentage
+    double checkinPercentage = totalCount > 0 ? verifiedCount / totalCount : 0;
+    final percentText = '${(checkinPercentage * 100).toInt()}%';
+    
+    // For verified teams, show text based on individual member status
+    if (checkinPercentage == 1.0) {
+      return 'All Checked In';
     } else {
-      return 'Not Checked In';
+      return '$percentText Checked In';
     }
   }
   
@@ -489,6 +583,15 @@ class _OCTeamsTabState extends State<OCTeamsTab> {
       return Colors.red;
     }
 
+    // Get overall team verification status
+    bool isTeamVerified = team['isVerified'] ?? false;
+    
+    // If team is not verified, always show red regardless of individual member status
+    if (!isTeamVerified) {
+      return Colors.red; // Not verified
+    }
+    
+    // If team is verified, calculate check-in progress for display purposes
     int verifiedCount = 0;
     int totalCount = 1; // Leader
     
@@ -511,12 +614,18 @@ class _OCTeamsTabState extends State<OCTeamsTab> {
       }
     }
     
-    if (verifiedCount == totalCount && totalCount > 0) {
-      return Colors.green;
-    } else if (verifiedCount > 0) {
-      return Colors.orange;
+    // Calculate check-in percentage
+    double checkinPercentage = totalCount > 0 ? verifiedCount / totalCount : 0;
+    
+    // For verified teams, show color based on individual member status
+    if (checkinPercentage == 1.0) {
+      return Colors.green; // All individual members checked in
+    } else if (checkinPercentage >= 0.7) {
+      return Colors.lightGreen; // Mostly checked in (≥70%)
+    } else if (checkinPercentage >= 0.3) {
+      return Colors.orange; // Partially checked in (≥30%)
     } else {
-      return Colors.red;
+      return Colors.deepOrange; // Few checked in (<30%)
     }
   }
 }
@@ -525,11 +634,13 @@ class _OCTeamsTabState extends State<OCTeamsTab> {
 class TeamDetailsDialog extends StatefulWidget {
   final String teamId;
   final String teamName;
+  final VoidCallback onTeamUpdated;
 
   const TeamDetailsDialog({
     Key? key,
     required this.teamId,
     required this.teamName,
+    required this.onTeamUpdated,
   }) : super(key: key);
 
   @override
@@ -694,6 +805,46 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
                         Divider(color: AppTheme.glassBorderColor),
                         const SizedBox(height: 12),
                         
+                        // Team verification toggle switch
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Team Verification Status:',
+                              style: TextStyle(
+                                color: AppTheme.textPrimaryColor,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Switch(
+                              value: _teamData?['isVerified'] ?? false,
+                              activeColor: Colors.green,
+                              activeTrackColor: Colors.green.withOpacity(0.5),
+                              inactiveThumbColor: Colors.red,
+                              inactiveTrackColor: Colors.red.withOpacity(0.5),
+                              onChanged: (value) {
+                                _updateTeamVerificationStatus(value);
+                              },
+                            ),
+                          ],
+                        ),
+                        Center(
+                          child: Text(
+                            _teamData?['isVerified'] == true 
+                                ? 'Team is officially verified' 
+                                : 'Team needs official verification',
+                            style: TextStyle(
+                              color: _teamData?['isVerified'] == true 
+                                  ? Colors.green 
+                                  : Colors.orange,
+                              fontSize: 12,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        
                         // Send QR codes to iOS users button
                         Center(
                           child: ElevatedButton.icon(
@@ -730,6 +881,13 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
     final phone = member['phone'] ?? 'No phone';
     final isIOS = member['device'] == 'iOS';
     
+    // Get team verification status to determine if checkboxes should be enabled
+    final isTeamVerified = _teamData?['isVerified'] ?? false;
+    
+    // If team is not verified, all members are shown as not verified regardless of their individual status
+    // If team is verified, use their actual verification status
+    final isVerified = isTeamVerified ? (member['isVerified'] ?? false) : false;
+    
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       color: AppTheme.cardColor.withOpacity(0.3),
@@ -759,6 +917,7 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
                     ),
                   ),
                 ),
+                // iOS badge
                 if (isIOS)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -786,6 +945,19 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
                       ],
                     ),
                   ),
+                // Added checkbox for verification status - only enabled if team is verified
+                const SizedBox(width: 8),
+                Checkbox(
+                  value: isVerified,
+                  activeColor: AppTheme.accentColor,
+                  onChanged: isTeamVerified 
+                      ? (bool? newValue) {
+                          if (newValue != null) {
+                            _updateMemberVerificationStatus(isLeader, name, newValue);
+                          }
+                        } 
+                      : null, // Disable checkbox if team is not verified
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -802,11 +974,179 @@ class _TeamDetailsDialogState extends State<TeamDetailsDialog> {
               style: TextStyle(
                 color: AppTheme.textSecondaryColor,
                 fontSize: 14,
+              ),
+            ),
+            // Added verification status indicator
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(
+                  isVerified ? Icons.check_circle : Icons.cancel,
+                  color: isVerified ? Colors.green : Colors.red,
+                  size: 14,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  isVerified ? 'Checked In' : 'Not Checked In',
+                  style: TextStyle(
+                    color: isVerified ? Colors.green : Colors.red,
+                    fontSize: 12,
                   ),
-          ),
-        ],
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  // Add method to update member verification status
+  Future<void> _updateMemberVerificationStatus(bool isLeader, String memberName, bool isVerified) async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      final DocumentReference teamRef = _firestore.collection('teams').doc(widget.teamId);
+      
+      if (isLeader) {
+        // Update leader's verification status
+        await teamRef.update({
+          'leader.isVerified': isVerified,
+        });
+        setState(() {
+          if (_teamData != null && _teamData!['leader'] != null) {
+            (_teamData!['leader'] as Map<String, dynamic>)['isVerified'] = isVerified;
+          }
+        });
+      } else {
+        // Find member in members array
+        final members = _teamData!['members'] as List;
+        final memberIndex = members.indexWhere((m) => m['name'] == memberName);
+        
+        if (memberIndex != -1) {
+          // Create a copy of the member with updated verification status
+          final updatedMember = Map<String, dynamic>.from(members[memberIndex]);
+          updatedMember['isVerified'] = isVerified;
+          
+          // Create a new members list with the updated member
+          final updatedMembers = List.from(members);
+          updatedMembers[memberIndex] = updatedMember;
+          
+          // Update the entire members array in Firestore
+          await teamRef.update({
+            'members': updatedMembers,
+          });
+          
+          // Update local state
+          setState(() {
+            _teamData!['members'] = updatedMembers;
+          });
+        }
+      }
+      
+      // Notify parent that updates were made
+      widget.onTeamUpdated();
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${isLeader ? 'Leader' : 'Member'} verification status updated successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error updating verification status: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  // Add method to update team verification status
+  Future<void> _updateTeamVerificationStatus(bool isVerified) async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      final DocumentReference teamRef = _firestore.collection('teams').doc(widget.teamId);
+      
+      if (isVerified) {
+        // When team is verified, verify all members
+        
+        // Update leader verification
+        Map<String, dynamic> updatedLeader = Map<String, dynamic>.from(_teamData!['leader']);
+        updatedLeader['isVerified'] = true;
+        
+        // Update all members verification
+        List<dynamic> members = _teamData!['members'] as List;
+        List<dynamic> updatedMembers = [];
+        
+        for (var member in members) {
+          Map<String, dynamic> updatedMember = Map<String, dynamic>.from(member);
+          updatedMember['isVerified'] = true;
+          updatedMembers.add(updatedMember);
+        }
+        
+        // Update team and all members at once
+        await teamRef.update({
+          'isVerified': true,
+          'leader': updatedLeader,
+          'members': updatedMembers,
+        });
+        
+        // Update local state
+        setState(() {
+          _teamData!['isVerified'] = true;
+          _teamData!['leader'] = updatedLeader;
+          _teamData!['members'] = updatedMembers;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Team verified and all members marked as checked in'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        // Just update team verification status (without changing member status)
+        await teamRef.update({
+          'isVerified': false,
+        });
+        
+        // Update local state
+        setState(() {
+          _teamData!['isVerified'] = false;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Team verification status updated to unverified'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      
+      // Notify parent that updates were made
+      widget.onTeamUpdated();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error updating team verification status: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 } 
