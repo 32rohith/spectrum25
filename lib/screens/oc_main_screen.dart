@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'dart:ui';
 import '../theme/app_theme.dart';
 import '../utils/glass_morphism.dart';
+import '../services/auth_service.dart';
+import 'welcome_screen.dart';
 import 'tabs/oc_checkin_tab.dart';
 import 'tabs/oc_food_tab.dart';
 import 'tabs/oc_teams_tab.dart';
@@ -58,9 +60,17 @@ class _OCMainScreenState extends State<OCMainScreen> {
               Icons.logout,
               color: AppTheme.accentColor,
             ),
-            onPressed: () {
-              // Handle logout
-              Navigator.pop(context);
+            onPressed: () async {
+              // Clear saved credentials and navigate to welcome screen
+              final authService = AuthService();
+              await authService.clearSavedCredentials();
+              
+              // Use pushReplacement to prevent going back with back button
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (context) => const WelcomeScreen(),
+                ),
+              );
             },
           ),
         ],

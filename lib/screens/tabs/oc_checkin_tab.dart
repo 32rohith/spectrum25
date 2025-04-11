@@ -495,7 +495,41 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                                     ),
                                     SizedBox(height: screenHeight * 0.01),
                                     Text(
-                                      '${_teams.where((team) => team['isVerified'] == true).length}',
+                                      '${_teams.where((team) {
+                                        // For Teams Checked In, we want:
+                                        // 1. The team to be marked as verified
+                                        // 2. All team members must also be verified
+                                      
+                                        // First check if the team itself is verified
+                                        if (team['isVerified'] != true) return false;
+
+                                        // Then check that all members are verified
+                                        bool allMembersVerified = true;
+                                        
+                                        // Check leader verification
+                                        if (team['leader'] != null && team['leader'] is Map) {
+                                          if (team['leader']?['isVerified'] != true) {
+                                            allMembersVerified = false;
+                                          }
+                                        }
+                                        
+                                        // Check all team members' verification
+                                        if (allMembersVerified && team['members'] != null) {
+                                          if (team['members'] is List) {
+                                            for (var member in team['members']) {
+                                              if (member is Map && member['isVerified'] != true) {
+                                                allMembersVerified = false;
+                                                break;
+                                              }
+                                            }
+                                          } else if (team['members'] is Map && team['members']['isVerified'] != true) {
+                                            allMembersVerified = false;
+                                          }
+                                        }
+                                        
+                                        // Only include fully verified teams
+                                        return allMembersVerified;
+                                      }).length}',
                                       style: TextStyle(
                                         color: AppTheme.textPrimaryColor,
                                         fontSize: screenWidth * 0.055,
@@ -651,7 +685,51 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                                     ),
                                     SizedBox(height: screenHeight * 0.01),
                                     Text(
-                                      '0',
+                                      '${_teams.where((team) {
+                                        // Teams that have started but not completed check-in
+                                        // Check if team itself is verified
+                                        bool isTeamFullyVerified = team['isVerified'] == true;
+                                        
+                                        // Determine if ANY members are verified
+                                        bool hasAnyVerifiedMember = false;
+                                        bool areAllMembersVerified = true;
+                                        
+                                        // Check leader verification
+                                        if (team['leader'] != null && team['leader'] is Map) {
+                                          if (team['leader']?['isVerified'] == true) {
+                                            hasAnyVerifiedMember = true;
+                                          } else {
+                                            areAllMembersVerified = false;
+                                          }
+                                        }
+                                        
+                                        // Check all team members' verification
+                                        if (team['members'] != null) {
+                                          if (team['members'] is List) {
+                                            for (var member in team['members']) {
+                                              if (member is Map) {
+                                                if (member['isVerified'] == true) {
+                                                  hasAnyVerifiedMember = true;
+                                                } else {
+                                                  areAllMembersVerified = false;
+                                                }
+                                              } else {
+                                                areAllMembersVerified = false;
+                                              }
+                                            }
+                                          } else if (team['members'] is Map) {
+                                            if (team['members']['isVerified'] == true) {
+                                              hasAnyVerifiedMember = true;
+                                            } else {
+                                              areAllMembersVerified = false;
+                                            }
+                                          }
+                                        }
+                                        
+                                        // Include teams that have at least one member verified 
+                                        // but not all members verified
+                                        return hasAnyVerifiedMember && (!areAllMembersVerified || !isTeamFullyVerified);
+                                      }).length}',
                                       style: TextStyle(
                                         color: AppTheme.textPrimaryColor,
                                         fontSize: screenWidth * 0.055,
@@ -708,6 +786,7 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                           ),
                         ],
                       ),
+                      
                       SizedBox(height: screenHeight * 0.01),
                       
                       // Check-in Progress
@@ -730,7 +809,38 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                                   ),
                                   Text(
                                     _teams.isEmpty ? '0%' : 
-                                      '${(_teams.where((team) => team['isVerified'] == true).length * 100 / _teams.length).round()}%',
+                                      '${(() {
+                                        // Count total members across all teams
+                                        int totalMembers = 0;
+                                        int verifiedMembers = 0;
+                                        
+                                        for (var team in _teams) {
+                                          // Count leader
+                                          totalMembers++;
+                                          if (team['leader'] != null && team['leader'] is Map && team['leader']?['isVerified'] == true) {
+                                            verifiedMembers++;
+                                          }
+                                          
+                                          // Count team members
+                                          if (team['members'] != null) {
+                                            if (team['members'] is List) {
+                                              totalMembers += (team['members'] as List).length;
+                                              for (var member in team['members']) {
+                                                if (member is Map && member['isVerified'] == true) {
+                                                  verifiedMembers++;
+                                                }
+                                              }
+                                            } else if (team['members'] is Map) {
+                                              totalMembers++;
+                                              if (team['members']['isVerified'] == true) {
+                                                verifiedMembers++;
+                                              }
+                                            }
+                                          }
+                                        }
+                                        
+                                        return totalMembers > 0 ? (verifiedMembers * 100 / totalMembers).round() : 0;
+                                      })()}%',
                                     style: TextStyle(
                                       color: AppTheme.accentColor,
                                       fontSize: screenWidth * 0.04,
@@ -743,8 +853,39 @@ class _OCCheckinTabState extends State<OCCheckinTab> {
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(screenWidth * 0.02),
                                 child: LinearProgressIndicator(
-                                  value: _teams.isEmpty ? 0 : 
-                                    _teams.where((team) => team['isVerified'] == true).length / _teams.length,
+                                  value: _teams.isEmpty ? 0.0 : 
+                                    (() {
+                                      // Count total members across all teams
+                                      int totalMembers = 0;
+                                      int verifiedMembers = 0;
+                                      
+                                      for (var team in _teams) {
+                                        // Count leader
+                                        totalMembers++;
+                                        if (team['leader'] != null && team['leader'] is Map && team['leader']?['isVerified'] == true) {
+                                          verifiedMembers++;
+                                        }
+                                        
+                                        // Count team members
+                                        if (team['members'] != null) {
+                                          if (team['members'] is List) {
+                                            totalMembers += (team['members'] as List).length;
+                                            for (var member in team['members']) {
+                                              if (member is Map && member['isVerified'] == true) {
+                                                verifiedMembers++;
+                                              }
+                                            }
+                                          } else if (team['members'] is Map) {
+                                            totalMembers++;
+                                            if (team['members']['isVerified'] == true) {
+                                              verifiedMembers++;
+                                            }
+                                          }
+                                        }
+                                      }
+                                      
+                                      return totalMembers > 0 ? (verifiedMembers / totalMembers).toDouble() : 0.0;
+                                    })(),
                                   minHeight: screenHeight * 0.015,
                                   backgroundColor: AppTheme.cardColor,
                                   valueColor: AlwaysStoppedAnimation<Color>(
